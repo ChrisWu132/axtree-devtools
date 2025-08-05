@@ -1,6 +1,5 @@
 ---
-description: 面向最终使用者（QA、CI、Agent 开发者等）的产品说明书
-alwaysApply: false
+alwaysApply: true
 ---
 # AXtreeTool ─ Headless Chromium AX Tree 可视化套件
 

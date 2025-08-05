@@ -75,8 +75,7 @@ export class Bridge extends EventEmitter {
     });
 
     this.cdpClient.onNodesUpdated((nodes: any[]) => {
-      // For now, just trigger a full refresh
-      // In phase 3, we'll implement proper delta updates
+      // For now, just trigger a full refresh for major updates
       this.cdpClient.getFullAXTree().then(tree => {
         if (tree) {
           this.broadcast({
@@ -84,6 +83,15 @@ export class Bridge extends EventEmitter {
             payload: tree
           });
         }
+      });
+    });
+
+    // Handle delta updates
+    this.cdpClient.onDeltaUpdate((deltaData: any) => {
+      console.log('Broadcasting delta update to clients');
+      this.broadcast({
+        type: 'delta',
+        payload: deltaData
       });
     });
 
