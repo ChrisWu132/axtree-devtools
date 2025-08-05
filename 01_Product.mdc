@@ -1,0 +1,75 @@
+---
+description: 面向最终使用者（QA、CI、Agent 开发者等）的产品说明书
+alwaysApply: false
+---
+# AXtreeTool ─ Headless Chromium AX Tree 可视化套件
+
+AXtreeTool 让你在 **毫不打扰既有流程** 的前提下，实时查看运行中页面的无障碍树（Accessibility Tree）。
+
+* 🚫 **不再** 额外启动浏览器
+* 🖥️ **专为 Headless 场景**（CI / Docker / 远程服务器）设计
+* 🕹️ 一行 `npx` 即可附着到已开放 CDP 端口的浏览器
+
+---
+## 1 核心使用场景
+
+| 场景 | 环境示例 | 带来的价值 |
+|------|----------|-----------|
+| CI 流水线 | GitHub Actions → 启动包含 `--remote-debugging-port=9222` 的 headless Chrome | 抓取 AX Tree 快照，生成 HTML 差异报告，阻断 a11y 回归缺陷 |
+| Docker 调试 | 生产容器运行 GUI Agent + Chrome | 本地 `npx @ax/cli connect` → 浏览器打开 UI，实时增量查看容器内页面的 AX Tree |
+| 远程服务器 | 开发机 SSH 到云端，端口转发 `9222` | 对服务端渲染页面做无头调试，高亮 DOM 元素 |
+
+---
+## 2 安装与快速开始
+
+```bash
+# ① 在被测环境内启动 headless Chrome
+chrome --headless --disable-gpu \
+       --remote-debugging-port=9222 \
+       https://your-app
+
+# ② 本地附着
+npx @ax/cli connect --port 9222
+```
+
+输出示例：
+```
+✔ CDP connected (target https://your-app)
+✔ Bridge listening ws://127.0.0.1:8080
+✔ UI running at http://localhost:5173  (auto-opened)
+```
+打开页面即可实时浏览 AX Tree；点击任意节点，远端 DOM 即时高亮。
+
+---
+## 3 CLI 命令概览
+
+| 命令 | 说明 | 典型用例 |
+|------|------|---------|
+| `connect` | 附着到已有浏览器 | `npx @ax/cli connect -p 9222` |
+| `snapshot` | 启动临时 headless 浏览器 & 输出 AX Tree JSON | CI 比对、留档 |
+| `diff` | 两份 AX Tree JSON → HTML 视觉对比报告 | 回归测试 |
+| `record` (计划) | 录制交互 + AX Tree 序列 | 高级回归 |
+| `replay` (计划) | 回放上述序列，高亮/截图对比 | QA 演示 |
+
+所有命令均默认只接受 `localhost` CDP 端口；如需远程请显式 `--allow-remote` 或使用 SSH 隧道。
+
+---
+## 4 功能一览
+
+* **实时树视图** — 基于 react-arborist 虚拟滚动，10 万节点依旧丝滑。
+* **增量更新** — 侦听 `Accessibility.nodesUpdated`，最小粒度刷新。
+* **节点详情** — role / name / states / actions / relations 一览无遗。
+* **搜索过滤** — 按 role/name 模糊匹配并自动滚动。
+* **双向高亮** — UI 点节点 → 远端 DOM 加红框；远端焦点变 → UI 同步。
+* **脚本化 WebSocket API** — GUI Agent/脚本可订阅树事件或发起快照。
+
+---
+## 5 兼容性与依赖栈
+
+* **浏览器** : Chromium ≥ 100（Chrome / Edge / Brave ...）
+* **CDP 客户端** : chrome-remote-interface（默认）
+* **数据 diff** : jsondiffpatch
+* **前端栈** : React 18 + Vite
+* **Node 版本** : ≥ 18
+
+如需技术实现与目录布局，请阅读 `FILE_STRUCTURE.mdc` 与 `implementation.mdc`。

@@ -1,0 +1,286 @@
+---
+alwaysApply: true
+---
+
+# AXtreeTool File Structure Plan
+
+## 运行时系统架构
+
+```mermaid
+graph TD;
+    subgraph "Browser Sandbox"
+        Chrome[Headless Chromium \n --remote-debugging-port=9222]
+    end
+
+    subgraph "AXtreeTool Host"
+        CLI[@ax/cli]
+        Bridge[@ax/bridge]\nWS :8080
+        Core[@ax/core]
+        UI[@ax/ui]\nReact + Vite
+    end
+
+    CLI --fork--> Bridge
+    Bridge --uses--> Core
+    Bridge --CDP WS--> Chrome
+    Bridge --WS JSON--> UI
+    UI --highlight / snapshot--> Bridge
+```
+
+> • CLI 仅负责编排（启动 Bridge / UI）
+> • Bridge 同时连接 Browser (CDP) 与 UI (WebSocket)
+> • Core 纯算法库，被 Bridge & UI 共同依赖
+
+---
+
+This document outlines the proposed file and directory structure for the AXtreeTool project. The project will be set up as a monorepo to manage the different packages (`core`, `bridge`, `ui`, `cli`) in a clean and scalable way. We will use `pnpm` workspaces to handle dependencies and local package linking.
+
+## Monorepo Root Structure
+
+```
+axtreetool/
+├── packages/
+│   ├── cli/         # @ax/cli - The user-facing command-line tool
+│   ├── core/        # @ax/core - Shared data structures and logic
+│   ├── bridge/      # @ax/bridge - The CDP-to-WebSocket bridge service
+│   └── ui/          # @ax/ui - The React-based frontend application
+├── .gitignore
+├── package.json     # Root package.json for pnpm workspaces
+├── pnpm-workspace.yaml
+├── tsconfig.base.json # Shared TypeScript configuration
+├── README.md
+├── .eslintrc.cjs    # Shared ESLint config
+├── .prettierrc      # Prettier config
+├── vitest.config.ts # Unit test runner config
+├── scripts/         # Helper scripts (e.g. release, lint, precommit)
+├── .github/
+│   └── workflows/
+│       └── ci.yml   # CI pipeline running tests & lint
+└── docs/            # Additional documentation (design drafts, ADRs)
+```
+
+> The root keeps only cross-cutting configuration; all runtime code lives under `packages/`.
+
+## Package Details
+
+### 1. `packages/cli` (`@ax/cli`)
+
+```
+packages/cli/
+├── src/
+│   ├── commands/
+│   │   ├── connect.ts   # Logic for the 'connect' command
+│   │   ├── record.ts    # (future) Start a recording session
+│   │   ├── replay.ts    # (future) Replay a previously recorded session
+│   │   └── snapshot.ts  # (future) Capture AX Tree snapshot in CI
+│   └── index.ts         # Main CLI entry (commander)
+├── tests/               # Unit tests for CLI helpers
+├── package.json
+└── tsconfig.json
+```
+
+### 2. `packages/bridge` (`@ax/bridge`)
+
+```
+packages/bridge/
+├── src/
+│   ├── CdpClient.ts         # Low-level CDP connection helper
+│   ├── WebSocketServer.ts   # WebSocket server → UI
+│   ├── SyncEngine.ts        # Transforms CDP events → delta payloads
+│   └── index.ts             # Bootstraps bridge service
+├── tests/
+│   └── CdpClient.spec.ts
+├── package.json
+└── tsconfig.json
+```
+
+### 3. `packages/ui` (`@ax/ui`)
+
+```
+packages/ui/
+├── src/
+│   ├── components/
+│   │   ├── TreeView/
+│   │   │   ├── TreeView.tsx
+│   │   │   └── TreeNode.tsx
+│   │   ├── NodeDetailsPanel.tsx
+│   │   └── SearchBar.tsx
+│   ├── hooks/
+│   │   └── useAxTreeSocket.ts
+│   ├── lib/
+│   │   └── state.ts        # Zustand / Redux store
+│   ├── styles/
+│   │   └── app.css
+│   ├── App.tsx
+│   └── main.tsx
+├── public/
+├── tests/
+│   └── TreeView.spec.tsx
+├── index.html
+├── vite.config.ts
+└── package.json
+```
+
+### 4. `packages/core` (`@ax/core`)
+
+```
+packages/core/
+├── src/
+│   ├── parser.ts      # Flat → tree conversion
+│   ├── diff.ts        # Tree diff utilities
+│   ├── recorder.ts    # (future) Record user actions + AX snapshots
+│   ├── types.ts       # Shared TS types
+│   └── index.ts
+├── tests/
+│   └── parser.spec.ts
+├── package.json
+└── tsconfig.json
+```
+
+## Repository Tooling & Configuration
+
+* **ESLint / Prettier** – Unified code style checked on every commit via `husky` + `lint-staged`.
+* **Vitest** – Fast unit-test runner configured at root with per-package test directories.
+* **Playwright** – Optional E2E tests spun up during CI to validate Bridge ↔ UI integration.
+* **GitHub Actions** – `ci.yml` runs `pnpm install`, lints, builds, and executes the test matrix.
+* **Conventional Commits & Release** – `scripts/release.ts` automates semantic-versioning and changelog generation.
+# AXtreeTool File Structure Plan
+
+## 运行时系统架构
+
+```mermaid
+graph TD;
+    subgraph "Browser Sandbox"
+        Chrome[Headless Chromium \n --remote-debugging-port=9222]
+    end
+
+    subgraph "AXtreeTool Host"
+        CLI[@ax/cli]
+        Bridge[@ax/bridge]\nWS :8080
+        Core[@ax/core]
+        UI[@ax/ui]\nReact + Vite
+    end
+
+    CLI --fork--> Bridge
+    Bridge --uses--> Core
+    Bridge --CDP WS--> Chrome
+    Bridge --WS JSON--> UI
+    UI --highlight / snapshot--> Bridge
+```
+
+> • CLI 仅负责编排（启动 Bridge / UI）
+> • Bridge 同时连接 Browser (CDP) 与 UI (WebSocket)
+> • Core 纯算法库，被 Bridge & UI 共同依赖
+
+---
+
+This document outlines the proposed file and directory structure for the AXtreeTool project. The project will be set up as a monorepo to manage the different packages (`core`, `bridge`, `ui`, `cli`) in a clean and scalable way. We will use `pnpm` workspaces to handle dependencies and local package linking.
+
+## Monorepo Root Structure
+
+```
+axtreetool/
+├── packages/
+│   ├── cli/         # @ax/cli - The user-facing command-line tool
+│   ├── core/        # @ax/core - Shared data structures and logic
+│   ├── bridge/      # @ax/bridge - The CDP-to-WebSocket bridge service
+│   └── ui/          # @ax/ui - The React-based frontend application
+├── .gitignore
+├── package.json     # Root package.json for pnpm workspaces
+├── pnpm-workspace.yaml
+├── tsconfig.base.json # Shared TypeScript configuration
+├── README.md
+├── .eslintrc.cjs    # Shared ESLint config
+├── .prettierrc      # Prettier config
+├── vitest.config.ts # Unit test runner config
+├── scripts/         # Helper scripts (e.g. release, lint, precommit)
+├── .github/
+│   └── workflows/
+│       └── ci.yml   # CI pipeline running tests & lint
+└── docs/            # Additional documentation (design drafts, ADRs)
+```
+
+> The root keeps only cross-cutting configuration; all runtime code lives under `packages/`.
+
+## Package Details
+
+### 1. `packages/cli` (`@ax/cli`)
+
+```
+packages/cli/
+├── src/
+│   ├── commands/
+│   │   ├── connect.ts   # Logic for the 'connect' command
+│   │   ├── record.ts    # (future) Start a recording session
+│   │   ├── replay.ts    # (future) Replay a previously recorded session
+│   │   └── snapshot.ts  # (future) Capture AX Tree snapshot in CI
+│   └── index.ts         # Main CLI entry (commander)
+├── tests/               # Unit tests for CLI helpers
+├── package.json
+└── tsconfig.json
+```
+
+### 2. `packages/bridge` (`@ax/bridge`)
+
+```
+packages/bridge/
+├── src/
+│   ├── CdpClient.ts         # Low-level CDP connection helper
+│   ├── WebSocketServer.ts   # WebSocket server → UI
+│   ├── SyncEngine.ts        # Transforms CDP events → delta payloads
+│   └── index.ts             # Bootstraps bridge service
+├── tests/
+│   └── CdpClient.spec.ts
+├── package.json
+└── tsconfig.json
+```
+
+### 3. `packages/ui` (`@ax/ui`)
+
+```
+packages/ui/
+├── src/
+│   ├── components/
+│   │   ├── TreeView/
+│   │   │   ├── TreeView.tsx
+│   │   │   └── TreeNode.tsx
+│   │   ├── NodeDetailsPanel.tsx
+│   │   └── SearchBar.tsx
+│   ├── hooks/
+│   │   └── useAxTreeSocket.ts
+│   ├── lib/
+│   │   └── state.ts        # Zustand / Redux store
+│   ├── styles/
+│   │   └── app.css
+│   ├── App.tsx
+│   └── main.tsx
+├── public/
+├── tests/
+│   └── TreeView.spec.tsx
+├── index.html
+├── vite.config.ts
+└── package.json
+```
+
+### 4. `packages/core` (`@ax/core`)
+
+```
+packages/core/
+├── src/
+│   ├── parser.ts      # Flat → tree conversion
+│   ├── diff.ts        # Tree diff utilities
+│   ├── recorder.ts    # (future) Record user actions + AX snapshots
+│   ├── types.ts       # Shared TS types
+│   └── index.ts
+├── tests/
+│   └── parser.spec.ts
+├── package.json
+└── tsconfig.json
+```
+
+## Repository Tooling & Configuration
+
+* **ESLint / Prettier** – Unified code style checked on every commit via `husky` + `lint-staged`.
+* **Vitest** – Fast unit-test runner configured at root with per-package test directories.
+* **Playwright** – Optional E2E tests spun up during CI to validate Bridge ↔ UI integration.
+* **GitHub Actions** – `ci.yml` runs `pnpm install`, lints, builds, and executes the test matrix.
+* **Conventional Commits & Release** – `scripts/release.ts` automates semantic-versioning and changelog generation.
