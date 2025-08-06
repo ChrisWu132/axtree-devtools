@@ -16,7 +16,8 @@ export class Bridge extends EventEmitter {
     
     this.cdpClient = new CdpClient({
       host: options.cdpHost || 'localhost',
-      port: options.cdpPort
+      port: options.cdpPort,
+      wsUrl: options.wsUrl
     });
 
     this.wsServer = new WebSocketServer({

@@ -49,6 +49,7 @@ export interface JsonDiffPatchDelta {
 export interface BridgeOptions {
   port: number;
   host?: string;
-  cdpPort: number;
+  cdpPort?: number;
   cdpHost?: string;
+  wsUrl?: string; // Direct WebSocket URL
 }

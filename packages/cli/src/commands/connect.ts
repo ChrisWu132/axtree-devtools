@@ -5,10 +5,13 @@ import { Bridge } from '@ax/bridge';
 import { spawn, ChildProcess } from 'child_process';
 
 interface ConnectOptions {
-  port: string;
-  host: string;
+  port?: string;
+  host?: string;
+  wsUrl?: string;
   uiPort: string;
   uiHost: string;
+  bridgePort?: string;
+  skipUi?: boolean;
 }
 
 export function createConnectCommand(): Command {
@@ -16,10 +19,13 @@ export function createConnectCommand(): Command {
   
   command
     .description('Connect to Chrome DevTools and start the AXTree bridge')
-    .option('-p, --port <port>', 'Chrome DevTools port', '9222')
-    .option('-h, --host <host>', 'Chrome DevTools host', 'localhost')
+    .option('-p, --port <port>', 'Chrome DevTools port (legacy)', '9222')
+    .option('-h, --host <host>', 'Chrome DevTools host (legacy)', 'localhost')
+    .option('-w, --ws-url <url>', 'WebSocket debugger URL (e.g., ws://localhost:9222/devtools/page/A1B2C3)')
     .option('--ui-port <port>', 'UI development server port', '5173')
     .option('--ui-host <host>', 'UI development server host', 'localhost')
+    .option('--bridge-port <port>', 'Bridge WebSocket server port')
+    .option('--skip-ui', 'Skip starting UI development server (useful for testing)')
     .action(async (options: ConnectOptions) => {
       try {
         await executeConnect(options);
@@ -33,25 +39,36 @@ export function createConnectCommand(): Command {
 }
 
 async function executeConnect(options: ConnectOptions): Promise<void> {
-  const cdpPort = parseInt(options.port);
-  const cdpHost = options.host;
   const uiPort = parseInt(options.uiPort);
-  const bridgePort = uiPort + 1; // Use UI port + 1 for bridge
+  // Use provided bridge port, or default to uiPort + 1
+  const bridgePort = options.bridgePort ? parseInt(options.bridgePort) : uiPort + 1;
 
-  console.log(chalk.blue('🔍 Validating Chrome DevTools connection...'));
-  
-  // Validate CDP connection
-  await validateCdpConnection(cdpHost, cdpPort);
-  
-  console.log(chalk.green('✅ Chrome DevTools connection validated'));
+  let connectionConfig: any;
+
+  if (options.wsUrl) {
+    // Direct WebSocket URL mode
+    console.log(chalk.blue('🔍 Validating WebSocket URL...'));
+    connectionConfig = await validateAndParseWsUrl(options.wsUrl);
+    console.log(chalk.green('✅ WebSocket URL validated'));
+  } else {
+    // Legacy port-based mode
+    const cdpPort = parseInt(options.port!);
+    const cdpHost = options.host!;
+    
+    console.log(chalk.blue('🔍 Validating Chrome DevTools connection...'));
+    await validateCdpConnection(cdpHost, cdpPort);
+    console.log(chalk.green('✅ Chrome DevTools connection validated'));
+    
+    connectionConfig = { cdpPort, cdpHost };
+  }
+
   console.log(chalk.blue('🌉 Starting AXTree bridge...'));
 
   // Start the bridge
   const bridge = new Bridge({
     port: bridgePort,
     host: 'localhost',
-    cdpPort,
-    cdpHost
+    ...connectionConfig
   });
 
   // Handle bridge events
@@ -71,9 +88,12 @@ async function executeConnect(options: ConnectOptions): Promise<void> {
   // Start bridge
   await bridge.start();
 
-  // Start UI development server
-  console.log(chalk.blue('🎨 Starting UI development server...'));
-  const uiProcess = await startUiDevServer(uiPort);
+  // Start UI development server only if not skipped
+  let uiProcess: any = null;
+  if (!options.skipUi) {
+    console.log(chalk.blue('🎨 Starting UI development server...'));
+    uiProcess = await startUiDevServer(uiPort);
+  }
 
   // Handle graceful shutdown
   const cleanup = async () => {
@@ -122,6 +142,36 @@ async function validateCdpConnection(host: string, port: number): Promise<void> 
       );
     }
     throw new Error(`Failed to validate CDP connection: ${error.message}`);
+  }
+}
+
+async function validateAndParseWsUrl(wsUrl: string): Promise<{ wsUrl: string }> {
+  try {
+    // Parse WebSocket URL
+    const url = new URL(wsUrl);
+    
+    if (url.protocol !== 'ws:' && url.protocol !== 'wss:') {
+      throw new Error('WebSocket URL must start with ws:// or wss://');
+    }
+
+    // Extract host and port for HTTP validation
+    const httpUrl = `http://${url.host}/json/version`;
+    
+    try {
+      const response = await fetch(httpUrl);
+      if (response.ok) {
+        const data = await response.json() as any;
+        console.log(chalk.dim(`   Browser: ${data.Browser || 'Unknown'}`));
+        console.log(chalk.dim(`   Protocol: ${data['Protocol-Version'] || 'Unknown'}`));
+      }
+    } catch (error) {
+      // HTTP validation failed, but WebSocket might still work
+      console.log(chalk.yellow('   Warning: Could not validate via HTTP endpoint'));
+    }
+
+    return { wsUrl };
+  } catch (error: any) {
+    throw new Error(`Invalid WebSocket URL: ${error.message}`);
   }
 }
 

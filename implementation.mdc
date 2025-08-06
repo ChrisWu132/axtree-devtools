@@ -188,7 +188,7 @@ packages/cli/src/commands/connect.ts
 点击节点 → WS `highlight:{backendNodeId}` → Bridge → CDP Runtime.evaluate outline。
 
 ---
-## 阶段 3 ─ 增量更新 & 体验
+## 阶段 3 ─ 增量更新 & 体验 (已完成)
 
 1. Bridge 订阅 `Accessibility.nodesUpdated` → payload `type:'delta'`。 
 2. core/diff.ts 使用 **jsondiffpatch** 计算 delta（或直接转发节点列表）。
@@ -198,40 +198,62 @@ packages/cli/src/commands/connect.ts
 E2E：Playwright 脚本导航 github.com。断言 UI 节点文本存在。
 
 ---
-## 阶段 4 ─ CLI snapshot / record / replay
+## 阶段 4 ─ 增量时间线调试器 (record)
 
-| 命令 | 核心流程 | 关键存储 |
-|------|----------|----------|
-| snapshot | `launch.ts` 启动 Chrome --headless<br/>导航 URL → getFullAXTree → JSON | `snapshot-yyyymmdd.json`|
-| record   | **同步捕获交互事件+AX 树**：监听 CDP `Input.dispatch*` & 注入 `Page.addScriptToEvaluateOnNewDocument` 采集 `click / input / focus`，同时每 ρms 拉树，落盘 `{ ts, event?, snapshot? }[]` | `record-*.json`|
-| replay   | 读取 record.json → 重放事件 → 对比快照差异 → 生成 HTML 报告 | `report.html`|
+这是项目的下一个核心里程碑，我们将实现一个高效的、基于 **增量** 的时间线录制器。
 
-测试：利用 Playwright 的 browserType.launchServer 作为假浏览器。
+**核心理念：** 不再是每次交互都保存一个完整的树快照，而是只在录制开始时保存一个 **初始快照 (Initial Snapshot)**，之后每次 AX Tree 发生变化时，只记录 **树的差异 (Delta)**。这种方法将大大减小产出文件的大小，并提升录制和回放的性能。
+
+### 实现规划
+
+| 模块 | 核心任务 | 技术细节 |
+|---|---|---|
+| **@ax/cli** | `record` 命令 | 1. `axtree record --port 9222 --output timeline.json` **附着**到正在运行的浏览器。<br/>2. **在主进程中** 实例化 Bridge，并配置为录制模式。<br/>3. 监听 Bridge 发出的 `recording-stopped` 事件，然后将收集到的数据写入指定的输出文件。 |
+| **@ax/bridge** | **增量采集引擎** | 1. 启动时，获取并存储完整的 **初始无障碍树**。<br/>2. 监听 CDP 的 `Accessibility.nodesUpdated` 事件。<br/>3. 当事件触发时，**计算新树与前一状态树的差异 (delta)**，并将这个 `delta` 和触发它的用户输入事件（如 click, keydown）一同存储。<br/>4. `stopRecording()` 时，将包含初始快照和一系列 delta 的完整 `Recording` 对象返回给 CLI。|
+| **@ax/core** | **数据结构** | 在 `types.ts` 中修改 `Recording` 结构，使其包含一个 `initialSnapshot` 和一个 `timeline` 数组，数组中每个条目包含 `event` 和 `delta`。 |
+| **@ax/ui** | **增量播放器** | 1. `TimelinePlayer` 加载 `.axtree-timeline.json` 文件。<br/>2. UI 内部维护一个 **当前树状态**。初始时，显示 `initialSnapshot`。<br/>3. 当用户在时间线上移动时，**UI 动态地应用或撤销 (patch/unpatch) delta** 来从初始快照计算出任何时间点的树状态。 |
+
+### 数据结构示例 (`.axtree-timeline.json`)
+```ts
+// packages/core/src/types.ts
+
+// Delta (差异) 的具体格式由 jsondiffpatch 定义
+type AXNodeTreeDelta = object; 
+
+interface TimelineEntry {
+  timestamp: number;
+  // 触发变化的事件
+  event?: { type: string; details: any; };
+  // 从前一状态到当前状态的树的差异
+  delta: AXNodeTreeDelta; 
+}
+
+interface Recording {
+  metadata: { /* ... */ };
+  // 录制开始时的完整树
+  initialSnapshot: AXNodeTree;
+  // 后续所有变化的时间线
+  timeline: TimelineEntry[];
+}
+```
 
 ---
-## 阶段 5 ─ 硬化 & 发布
+## 阶段 5 ─ E2E 测试 & 硬化
 
-1. bun / vite build ui → `dist/` + serve via express (bridge 内部)。
-2. `@ax/cli` 打包为 `bin`，使用 `pkg` 或 `nexe` 生成单文件可执行（可选）。
-3. 语义化发布脚本：`scripts/release.ts` 调用 `changesets` + GitHub Release。
-
----
-## 测试矩阵速览
-
-| 层 | 工具 | 触发 |
-|----|------|------|
-| 单元 | vitest | push / PR |
-| UI 组件 | vitest + react-testing-library | push / PR |
-| Bridge   | vitest (mock CDP) | push / PR |
-| 集成 | Playwright headless | nightly |
-| a11y | axe-core on UI | PR (UI) |
+1.  **E2E 测试:**
+    *   创建 `tests/e2e/record.spec.ts`。
+    *   测试场景：启动 `record` 命令录制一个包含特定交互（如点击按钮）的简单页面。
+    *   断言：验证生成的 `.axtree-timeline.json` 文件中是否包含正确的 `initialSnapshot` 和预期的 `delta`。
+2.  **硬化:**
+    *   确保 `patch` 和 `unpatch` 在各种边界情况下都能正确工作。
+    *   优化 `delta` 计算的性能。
+3.  **发布:**
+    *   将 `@ax/cli` 打包为 `bin` 并发布到 npm。
 
 ---
-## 仍可用库直接解决的细节
+## 未来功能
 
-1. **键盘导航 & ARIA**：React-Arborist 已内置多键盘交互；若需进一步 a11y，可引入 `@react-aria/focus`。
-2. **录制辅助**：`chrome-devtools-frontend` 的 `Recorder` 协议已开放，可作为 record 命令的底层实现，减少自研。 
-3. **CDP Type 自动生成**：使用 `@puppeteer/replay` 里的 protocol-types 以保证 TS 精度。 
-4. **报告模板**：采用 `vite-plugin-static-copy` + `handlebars` 一键生成 HTML 报告，而非手写 DOM。
-
-总体来看，核心难点（AX 解析 + diff + 虚拟树 + CDP 桥接）均已有社区库辅助，现阶段不需要再额外引入大型依赖。
+| 命令 | 核心定位 | 实现思路 |
+|---|---|---|
+| `snapshot` | **离线快照查看器** | 启动 headless Chrome 捕获单点的 AX Tree 并保存为 `.axtree` 文件。|
+| `diff` | **无障碍回归探测器** | 对比两个 `.axtree` 文件并生成 HTML 差异报告。|

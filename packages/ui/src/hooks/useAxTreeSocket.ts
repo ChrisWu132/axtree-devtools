@@ -29,7 +29,7 @@ interface UseAxTreeSocketOptions {
 }
 
 export function useAxTreeSocket(options: UseAxTreeSocketOptions = {}) {
-  const { url = 'ws://localhost:5174/ax-tree', autoConnect = true } = options;
+  const { url, autoConnect = true } = options;
   
   const [tree, setTree] = useState<AXNodeTree | null>(null);
   const [isConnected, setIsConnected] = useState(false);
@@ -40,13 +40,18 @@ export function useAxTreeSocket(options: UseAxTreeSocketOptions = {}) {
   
   const connect = () => {
     try {
-      const ws = new WebSocket(url);
+      // Get bridge port from URL query params, default to 5174
+      const urlParams = new URLSearchParams(window.location.search);
+      const bridgePort = urlParams.get('bridgePort') || '5174';
+      const finalUrl = url || `ws://localhost:${bridgePort}/ax-tree`;
+      
+      const ws = new WebSocket(finalUrl);
       wsRef.current = ws;
       
       ws.onopen = () => {
         setIsConnected(true);
         setError(null);
-        console.log('WebSocket connected to AXTree bridge');
+        console.log(`WebSocket connected to AXTree bridge at ${finalUrl}`);
       };
       
       ws.onmessage = (event) => {

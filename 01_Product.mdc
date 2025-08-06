@@ -40,20 +40,21 @@ npx @ax/cli connect --port 9222
 打开页面即可实时浏览 AX Tree；点击任意节点，远端 DOM 即时高亮。
 
 ---
-## 3 CLI 命令概览
+## 3 CLI 命令概览 — 为开发者打造的无障碍调试工具
 
-| 命令 | 说明 | 典型用例 |
-|------|------|---------|
-| `connect` | 附着到已有浏览器 | `npx @ax/cli connect -p 9222` |
-| `snapshot` | 启动临时 headless 浏览器 & 输出 AX Tree JSON | CI 比对、留档 |
-| `diff` | 两份 AX Tree JSON → HTML 视觉对比报告 | 回归测试 |
-| `record` (计划) | 录制交互 + AX Tree 序列 | 高级回归 |
-| `replay` (计划) | 回放上述序列，高亮/截图对比 | QA 演示 |
-
-所有命令均默认只接受 `localhost` CDP 端口；如需远程请显式 `--allow-remote` 或使用 SSH 隧道。
+| 命令 | 核心定位 | 解决的问题 |
+|---|---|---|
+| `connect` | **实时检查器**<br/>(Live Inspector) | 在无法直接打开浏览器 DevTools 的环境（如 Docker, 远程服务器, CI）进行实时调试。 |
+| `record` | **交互时间线调试器**<br/>(Interaction Timeline Debugger) | **(核心功能)** 附着到正在运行的浏览器，完整记录用户操作过程中的所有无障碍树增量变化。用于复现和排查需要复杂用户操作才能触发的 a11y bug。|
 
 ---
-## 4 功能一览
+## 4 未来功能设想
+
+*   **离线快照 (`snapshot`)**: 在 CI 等环境中，快速抓取某一时刻的 AX Tree 快照，用于归档或自动化对比。
+*   **回归探测器 (`diff`)**: 对比两份快照，生成可视化的 HTML 报告，帮助在 Code Review 中发现潜在的 a11y 回归。
+
+---
+## 5 功能一览
 
 * **实时树视图** — 基于 react-arborist 虚拟滚动，10 万节点依旧丝滑。
 * **增量更新** — 侦听 `Accessibility.nodesUpdated`，最小粒度刷新。

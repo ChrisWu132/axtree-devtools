@@ -4,7 +4,8 @@ import { EventEmitter } from 'events';
 
 export interface CdpClientOptions {
   host?: string;
-  port: number;
+  port?: number;
+  wsUrl?: string; // Direct WebSocket URL
 }
 
 export class CdpClient extends EventEmitter {
@@ -14,44 +15,51 @@ export class CdpClient extends EventEmitter {
 
   constructor(options: CdpClientOptions) {
     super();
-    this.options = {
-      host: 'localhost',
-      ...options
-    };
+    this.options = options;
   }
 
   async connect(): Promise<void> {
     try {
-      // First get list of available tabs
-      const tabs = await CDP.List({
-        host: this.options.host,
-        port: this.options.port
-      });
+      if (this.options.wsUrl) {
+        // Direct WebSocket URL connection
+        console.log(`Connecting directly to WebSocket: ${this.options.wsUrl}`);
+        
+        this.client = await CDP({
+          target: this.options.wsUrl
+        });
+      } else {
+        // Legacy host:port connection
+        const host = this.options.host || 'localhost';
+        const port = this.options.port!;
+        
+        // First get list of available tabs
+        const tabs = await CDP.List({ host, port });
 
-      // Filter out the AXTree tool itself (localhost:5173) and DevTools
-      const targetTab = tabs.find(tab => 
-        tab.type === 'page' && 
-        tab.url && 
-        !tab.url.includes('localhost:5173') &&
-        !tab.url.includes('127.0.0.1:5173') &&
-        !tab.url.startsWith('chrome-extension://') &&
-        !tab.url.startsWith('chrome://') &&
-        !tab.url.startsWith('about:') &&
-        !tab.url.startsWith('devtools://') &&
-        tab.title !== 'DevTools'
-      );
+        // Filter out the AXTree tool itself (localhost:5173) and DevTools
+        const targetTab = tabs.find(tab => 
+          tab.type === 'page' && 
+          tab.url && 
+          !tab.url.includes('localhost:5173') &&
+          !tab.url.includes('127.0.0.1:5173') &&
+          !tab.url.startsWith('chrome-extension://') &&
+          !tab.url.startsWith('chrome://') &&
+          !tab.url.startsWith('about:') &&
+          !tab.url.startsWith('devtools://') &&
+          tab.title !== 'DevTools'
+        );
 
-      if (!targetTab) {
-        throw new Error('No suitable tab found. Please open a webpage in the Chrome debug instance.');
+        if (!targetTab) {
+          throw new Error('No suitable tab found. Please open a webpage in the Chrome debug instance.');
+        }
+
+        console.log(`Connecting to tab: ${targetTab.title} (${targetTab.url})`);
+
+        this.client = await CDP({
+          host,
+          port,
+          target: targetTab.id
+        });
       }
-
-      console.log(`Connecting to tab: ${targetTab.title} (${targetTab.url})`);
-
-      this.client = await CDP({
-        host: this.options.host,
-        port: this.options.port,
-        target: targetTab.id
-      });
 
       await this.enableDomains();
       this.setupEventListeners();

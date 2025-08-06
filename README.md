@@ -72,6 +72,15 @@ The primary command is `connect`, which starts the tool and connects to the spec
 3. **Open the UI:**
    Open your web browser and navigate to `http://localhost:5173` to see the accessibility tree.
 
+## Features
+
+*   **Live AXTree Inspector**: Connect to a running Chrome instance and view the accessibility tree in real-time.
+*   **Incremental Updates**: The UI efficiently updates using delta payloads as the tree changes.
+*   **Rich Node Details**: Inspect detailed properties, attributes, and states for each accessibility node.
+*   **Fuzzy Search**: Quickly find nodes by their name, role, or value.
+*   **Direct WebSocket URL Connection**: Use the `--ws-url` flag to bypass discovery and connect directly to a Chrome tab.
+*   **Dynamic Port Configuration**: Use `--bridge-port` and `--skip-ui` for seamless integration with E2E testing frameworks.
+
 ## Current Status
 
 ✅ **Phase 1 Complete**: Core & Bridge MVP with connect command
@@ -86,7 +95,7 @@ The primary command is `connect`, which starts the tool and connects to the spec
 - Node selection and highlighting functionality
 - Responsive design with modern styling
 
-Ready for **Phase 3**: Incremental updates & enhanced experience
+✅ **Phase 3 Complete**: Incremental updates & enhanced experience
 
 ## Development
 
