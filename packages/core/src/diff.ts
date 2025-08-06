@@ -158,3 +158,11 @@ export function getAffectedNodeIds(diff: any): number[] {
 
   return Array.from(nodeIds);
 }
+
+/**
+ * Compute delta between two accessibility trees
+ * This is the main function used by the Recorder
+ */
+export function computeDelta(oldTree: AXNodeTree, newTree: AXNodeTree): any {
+  return differ.diff(oldTree, newTree);
+}

@@ -3,14 +3,26 @@ import { TreeView } from './components/TreeView';
 import { NodeDetails } from './components/NodeDetails';
 import { SearchBox } from './components/SearchBox';
 import { SearchResults } from './components/SearchResults';
+import { TimelinePlayer } from './components/TimelinePlayer';
+import { RecordingLoader } from './components/RecordingLoader';
 import { useAxTreeSocket } from './hooks/useAxTreeSocket';
+import type { Recording, TimelineEntry, AXNodeTree } from '@ax/core';
 import './App.css';
+
+type AppMode = 'live' | 'timeline';
 
 function App() {
   const { tree, isConnected, error, sendHighlight } = useAxTreeSocket();
   const [selectedNode, setSelectedNode] = useState<any>(null);
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [showSearchResults, setShowSearchResults] = useState(false);
+  
+  // Timeline mode state
+  const [appMode, setAppMode] = useState<AppMode>('live');
+  const [currentRecording, setCurrentRecording] = useState<Recording | null>(null);
+  const [timelineTree, setTimelineTree] = useState<AXNodeTree | null>(null);
+  const [currentTimelineEntry, setCurrentTimelineEntry] = useState<TimelineEntry | null>(null);
+  const [loadingError, setLoadingError] = useState<string | null>(null);
 
   const handleNodeSelect = (node: any) => {
     setSelectedNode(node);
@@ -41,48 +53,160 @@ function App() {
     handleNodeHighlight(node.backendNodeId);
   };
 
+  // Timeline mode handlers
+  const handleModeSwitch = (mode: AppMode) => {
+    setAppMode(mode);
+    setSelectedNode(null);
+    setSearchResults([]);
+    setShowSearchResults(false);
+    setLoadingError(null);
+    
+    if (mode === 'live') {
+      setCurrentRecording(null);
+      setTimelineTree(null);
+      setCurrentTimelineEntry(null);
+    }
+  };
+
+  const handleRecordingLoaded = (recording: Recording) => {
+    setCurrentRecording(recording);
+    setTimelineTree(recording.initialSnapshot.tree);
+    setLoadingError(null);
+    console.log('Recording loaded successfully:', recording.metadata);
+  };
+
+  const handleTimelineTreeChange = (tree: AXNodeTree) => {
+    setTimelineTree(tree);
+    setSelectedNode(null); // Clear selection when tree changes
+  };
+
+  const handleTimelineEntryChange = (entry: TimelineEntry | null) => {
+    setCurrentTimelineEntry(entry);
+  };
+
+  const handleLoadingError = (errorMessage: string) => {
+    setLoadingError(errorMessage);
+  };
+
+  // Determine which tree to display
+  const displayTree = appMode === 'timeline' ? timelineTree : tree;
+
   return (
     <div className="app">
       <header className="app-header">
-        <h1>AXTree Tool</h1>
-        <div className="connection-status">
-          <div className={`status-indicator ${isConnected ? 'connected' : 'disconnected'}`}>
-            {isConnected ? '🟢 Connected' : '🔴 Disconnected'}
+        <div className="header-left">
+          <h1>AXTree Tool</h1>
+          <div className="mode-switcher">
+            <button 
+              className={`mode-button ${appMode === 'live' ? 'active' : ''}`}
+              onClick={() => handleModeSwitch('live')}
+            >
+              🔴 Live Mode
+            </button>
+            <button 
+              className={`mode-button ${appMode === 'timeline' ? 'active' : ''}`}
+              onClick={() => handleModeSwitch('timeline')}
+            >
+              ⏯️ Timeline Mode
+            </button>
           </div>
-          {error && (
-            <div className="error-message">
-              ⚠️ {error}
+        </div>
+        
+        <div className="header-status">
+          {appMode === 'live' ? (
+            <div className="connection-status">
+              <div className={`status-indicator ${isConnected ? 'connected' : 'disconnected'}`}>
+                {isConnected ? '🟢 Connected' : '🔴 Disconnected'}
+              </div>
+              {error && (
+                <div className="error-message">
+                  ⚠️ {error}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="timeline-status">
+              {currentRecording ? (
+                <div className="recording-info">
+                  📼 {currentRecording.metadata.title || 'Loaded Recording'}
+                </div>
+              ) : (
+                <div className="no-recording">
+                  📂 No recording loaded
+                </div>
+              )}
+              {loadingError && (
+                <div className="error-message">
+                  ⚠️ {loadingError}
+                </div>
+              )}
             </div>
           )}
         </div>
       </header>
 
-      <div className="search-section">
-        <SearchBox 
-          tree={tree}
-          onSearchResults={handleSearchResults}
-          onClearSearch={handleClearSearch}
-        />
-      </div>
+      {appMode === 'live' && (
+        <div className="search-section">
+          <SearchBox 
+            tree={displayTree}
+            onSearchResults={handleSearchResults}
+            onClearSearch={handleClearSearch}
+          />
+        </div>
+      )}
 
       <main className="app-main">
-        <div className="tree-panel">
-          <TreeView 
-            data={tree}
-            onNodeSelect={handleNodeSelect}
-            onNodeHighlight={handleNodeHighlight}
-          />
-          {showSearchResults && (
-            <SearchResults
-              results={searchResults}
-              onResultClick={handleSearchResultClick}
+        {appMode === 'timeline' && !currentRecording ? (
+          <div className="timeline-loader-container">
+            <RecordingLoader 
+              onRecordingLoaded={handleRecordingLoaded}
+              onError={handleLoadingError}
             />
-          )}
-        </div>
+          </div>
+        ) : (
+          <>
+            <div className="tree-panel">
+              <TreeView 
+                data={displayTree}
+                onNodeSelect={handleNodeSelect}
+                onNodeHighlight={appMode === 'live' ? handleNodeHighlight : undefined}
+              />
+              {showSearchResults && (
+                <SearchResults
+                  results={searchResults}
+                  onResultClick={handleSearchResultClick}
+                />
+              )}
+            </div>
+            
+            <div className="details-panel">
+              <NodeDetails selectedNode={selectedNode} />
+              {appMode === 'timeline' && currentTimelineEntry && (
+                <div className="timeline-entry-info">
+                  <h4>Timeline Entry Details</h4>
+                  <div className="entry-timestamp">
+                    Time: {new Date(currentTimelineEntry.timestamp).toLocaleTimeString()}
+                  </div>
+                  {currentTimelineEntry.event && (
+                    <div className="entry-event">
+                      <strong>Event:</strong> {currentTimelineEntry.event.type}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </>
+        )}
         
-        <div className="details-panel">
-          <NodeDetails selectedNode={selectedNode} />
-        </div>
+        {appMode === 'timeline' && currentRecording && (
+          <div className="timeline-panel">
+            <TimelinePlayer
+              recording={currentRecording}
+              onTreeChange={handleTimelineTreeChange}
+              onTimelineEntryChange={handleTimelineEntryChange}
+            />
+          </div>
+        )}
       </main>
     </div>
   );

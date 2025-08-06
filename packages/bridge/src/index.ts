@@ -1,12 +1,14 @@
 import { CdpClient } from './CdpClient.js';
 import { WebSocketServer } from './WebSocketServer.js';
+import { Recorder } from './Recorder.js';
 import { BridgeOptions, BridgeMessage } from './types.js';
-import { AXNodeTree } from '@ax/core';
+import { AXNodeTree, Recording, UserInteractionEvent } from '@ax/core';
 import { EventEmitter } from 'events';
 
 export class Bridge extends EventEmitter {
   private cdpClient: CdpClient;
   private wsServer: WebSocketServer;
+  private recorder: Recorder | null = null;
   private options: BridgeOptions;
   private isRunning = false;
 
@@ -24,6 +26,12 @@ export class Bridge extends EventEmitter {
       host: options.host || 'localhost',
       port: options.port
     });
+
+    // Initialize recorder if recording mode is enabled
+    if (options.recordingMode) {
+      this.recorder = new Recorder();
+      this.setupRecorderEventHandlers();
+    }
 
     this.setupEventHandlers();
   }
@@ -76,9 +84,15 @@ export class Bridge extends EventEmitter {
     });
 
     this.cdpClient.onNodesUpdated((nodes: any[]) => {
-      // For now, just trigger a full refresh for major updates
+      // Get the updated tree
       this.cdpClient.getFullAXTree().then(tree => {
         if (tree) {
+          // If recording, record the tree change
+          if (this.recorder?.getStatus().isRecording) {
+            this.recorder.recordTreeChange(tree);
+          }
+          
+          // Broadcast to UI clients
           this.broadcast({
             type: 'snapshot',
             payload: tree
@@ -163,8 +177,103 @@ export class Bridge extends EventEmitter {
       clientCount: this.wsServer.getClientCount()
     };
   }
+
+  /**
+   * 开始录制会话
+   * @param url 可选的页面 URL
+   * @param title 可选的页面标题
+   */
+  async startRecording(url?: string, title?: string): Promise<void> {
+    if (!this.recorder) {
+      throw new Error('Recording mode is not enabled. Initialize Bridge with recordingMode: true');
+    }
+
+    if (this.recorder.getStatus().isRecording) {
+      throw new Error('Recording is already in progress');
+    }
+
+    // Get current accessibility tree
+    const initialTree = await this.cdpClient.getFullAXTree();
+    if (!initialTree) {
+      throw new Error('Failed to get initial accessibility tree');
+    }
+
+    this.recorder.startRecording(initialTree, url, title);
+  }
+
+  /**
+   * 停止录制会话并返回录制数据
+   */
+  stopRecording(): Recording {
+    if (!this.recorder) {
+      throw new Error('Recording mode is not enabled');
+    }
+
+    return this.recorder.stopRecording();
+  }
+
+  /**
+   * 记录用户交互事件
+   */
+  recordUserEvent(event: UserInteractionEvent): void {
+    if (this.recorder) {
+      this.recorder.recordUserEvent(event);
+    }
+  }
+
+  /**
+   * 获取录制状态
+   */
+  getRecordingStatus(): { 
+    isRecordingModeEnabled: boolean; 
+    isRecording: boolean; 
+    timelineLength?: number;
+    startTime?: number;
+    duration?: number;
+  } {
+    if (!this.recorder) {
+      return { isRecordingModeEnabled: false, isRecording: false };
+    }
+
+    const recorderStatus = this.recorder.getStatus();
+    return {
+      isRecordingModeEnabled: true,
+      ...recorderStatus
+    };
+  }
+
+  /**
+   * 设置录制器事件处理器
+   */
+  private setupRecorderEventHandlers(): void {
+    if (!this.recorder) return;
+
+    this.recorder.on('recording-started', (snapshot) => {
+      console.log('Recording started with initial snapshot');
+      this.emit('recording-started', snapshot);
+    });
+
+    this.recorder.on('recording-stopped', (recording: Recording) => {
+      console.log(`Recording stopped. Total timeline entries: ${recording.timeline.length}`);
+      this.emit('recording-stopped', recording);
+    });
+
+    this.recorder.on('timeline-entry-added', (entry) => {
+      this.emit('timeline-entry-added', entry);
+    });
+
+    this.recorder.on('user-event-recorded', (entry) => {
+      this.emit('user-event-recorded', entry);
+    });
+
+    this.recorder.on('error', (error) => {
+      console.error('Recorder error:', error);
+      this.emit('error', error);
+    });
+  }
 }
 
 export * from './types.js';
 export { CdpClient } from './CdpClient.js';
 export { WebSocketServer } from './WebSocketServer.js';
+export { Recorder } from './Recorder.js';

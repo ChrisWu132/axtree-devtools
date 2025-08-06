@@ -52,4 +52,5 @@ export interface BridgeOptions {
   cdpPort?: number;
   cdpHost?: string;
   wsUrl?: string; // Direct WebSocket URL
+  recordingMode?: boolean; // Enable recording functionality
 }

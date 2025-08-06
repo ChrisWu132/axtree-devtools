@@ -1,0 +1,243 @@
+{
+  "metadata": {
+    "startTime": 1754495821592,
+    "endTime": 1754495826609,
+    "url": "https://example.com/",
+    "title": "Example Domain",
+    "version": "1.0.0"
+  },
+  "initialSnapshot": {
+    "timestamp": 1754495821592,
+    "tree": {
+      "backendNodeId": 2,
+      "role": "RootWebArea",
+      "name": "Example Domain",
+      "properties": {
+        "focusable": true,
+        "focused": true,
+        "url": "https://example.com/"
+      },
+      "attributes": {},
+      "states": [],
+      "children": [
+        {
+          "backendNodeId": 4,
+          "role": "none",
+          "attributes": {},
+          "states": [],
+          "children": [
+            {
+              "backendNodeId": 13,
+              "role": "none",
+              "attributes": {},
+              "states": [],
+              "children": [
+                {
+                  "backendNodeId": 14,
+                  "role": "none",
+                  "attributes": {},
+                  "states": [],
+                  "children": [
+                    {
+                      "backendNodeId": 15,
+                      "role": "heading",
+                      "name": "Example Domain",
+                      "properties": {
+                        "level": 1
+                      },
+                      "attributes": {},
+                      "states": [],
+                      "children": [
+                        {
+                          "backendNodeId": 16,
+                          "role": "StaticText",
+                          "name": "Example Domain",
+                          "properties": {},
+                          "attributes": {},
+                          "states": [],
+                          "children": []
+                        }
+                      ]
+                    },
+                    {
+                      "backendNodeId": 17,
+                      "role": "paragraph",
+                      "properties": {},
+                      "attributes": {},
+                      "states": [],
+                      "children": [
+                        {
+                          "backendNodeId": 18,
+                          "role": "StaticText",
+                          "name": "This domain is for use in illustrative examples in documents. You may use this domain in literature without prior coordination or asking for permission.",
+                          "properties": {},
+                          "attributes": {},
+                          "states": [],
+                          "children": []
+                        }
+                      ]
+                    },
+                    {
+                      "backendNodeId": 19,
+                      "role": "paragraph",
+                      "properties": {},
+                      "attributes": {},
+                      "states": [],
+                      "children": [
+                        {
+                          "backendNodeId": 20,
+                          "role": "link",
+                          "name": "More information...",
+                          "properties": {
+                            "focusable": true,
+                            "url": "https://www.iana.org/domains/example"
+                          },
+                          "attributes": {},
+                          "states": [],
+                          "children": [
+                            {
+                              "backendNodeId": 21,
+                              "role": "StaticText",
+                              "name": "More information...",
+                              "properties": {},
+                              "attributes": {},
+                              "states": [],
+                              "children": []
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "flatNodes": [
+      {
+        "backendNodeId": 2,
+        "role": "RootWebArea",
+        "name": "Example Domain",
+        "properties": {
+          "focusable": true,
+          "focused": true,
+          "url": "https://example.com/"
+        },
+        "attributes": {},
+        "states": [],
+        "childIds": [
+          4
+        ]
+      },
+      {
+        "backendNodeId": 4,
+        "role": "none",
+        "attributes": {},
+        "states": [],
+        "childIds": [
+          13
+        ]
+      },
+      {
+        "backendNodeId": 13,
+        "role": "none",
+        "attributes": {},
+        "states": [],
+        "childIds": [
+          14
+        ]
+      },
+      {
+        "backendNodeId": 14,
+        "role": "none",
+        "attributes": {},
+        "states": [],
+        "childIds": [
+          15,
+          17,
+          19
+        ]
+      },
+      {
+        "backendNodeId": 15,
+        "role": "heading",
+        "name": "Example Domain",
+        "properties": {
+          "level": 1
+        },
+        "attributes": {},
+        "states": [],
+        "childIds": [
+          16
+        ]
+      },
+      {
+        "backendNodeId": 16,
+        "role": "StaticText",
+        "name": "Example Domain",
+        "properties": {},
+        "attributes": {},
+        "states": [],
+        "childIds": []
+      },
+      {
+        "backendNodeId": 17,
+        "role": "paragraph",
+        "properties": {},
+        "attributes": {},
+        "states": [],
+        "childIds": [
+          18
+        ]
+      },
+      {
+        "backendNodeId": 18,
+        "role": "StaticText",
+        "name": "This domain is for use in illustrative examples in documents. You may use this domain in literature without prior coordination or asking for permission.",
+        "properties": {},
+        "attributes": {},
+        "states": [],
+        "childIds": []
+      },
+      {
+        "backendNodeId": 19,
+        "role": "paragraph",
+        "properties": {},
+        "attributes": {},
+        "states": [],
+        "childIds": [
+          20
+        ]
+      },
+      {
+        "backendNodeId": 20,
+        "role": "link",
+        "name": "More information...",
+        "properties": {
+          "focusable": true,
+          "url": "https://www.iana.org/domains/example"
+        },
+        "attributes": {},
+        "states": [],
+        "childIds": [
+          21
+        ]
+      },
+      {
+        "backendNodeId": 21,
+        "role": "StaticText",
+        "name": "More information...",
+        "properties": {},
+        "attributes": {},
+        "states": [],
+        "childIds": []
+      }
+    ],
+    "url": "https://example.com/",
+    "title": "Example Domain"
+  },
+  "timeline": []
+}
