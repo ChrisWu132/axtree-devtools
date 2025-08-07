@@ -12,13 +12,15 @@ interface ConnectOptions {
   uiHost: string;
   bridgePort?: string;
   skipUi?: boolean;
+  noRecord?: boolean;
+  output?: string;
 }
 
 export function createConnectCommand(): Command {
   const command = new Command('connect');
   
   command
-    .description('Connect to Chrome DevTools and start the AXTree bridge')
+    .description('Connect to Chrome DevTools with live monitoring & auto-recording')
     .option('-p, --port <port>', 'Chrome DevTools port (legacy)', '9222')
     .option('-h, --host <host>', 'Chrome DevTools host (legacy)', 'localhost')
     .option('-w, --ws-url <url>', 'WebSocket debugger URL (e.g., ws://localhost:9222/devtools/page/A1B2C3)')
@@ -26,6 +28,8 @@ export function createConnectCommand(): Command {
     .option('--ui-host <host>', 'UI development server host', 'localhost')
     .option('--bridge-port <port>', 'Bridge WebSocket server port')
     .option('--skip-ui', 'Skip starting UI development server (useful for testing)')
+    .option('--no-record', 'Disable auto-recording (live mode only)')
+    .option('-o, --output <file>', 'Save recording to file when stopped')
     .action(async (options: ConnectOptions) => {
       try {
         await executeConnect(options);
@@ -64,10 +68,11 @@ async function executeConnect(options: ConnectOptions): Promise<void> {
 
   console.log(chalk.blue('🌉 Starting AXTree bridge...'));
 
-  // Start the bridge
+  // Start the bridge with recording enabled by default
   const bridge = new Bridge({
     port: bridgePort,
     host: 'localhost',
+    recordingMode: !options.noRecord, // Default true unless --no-record
     ...connectionConfig
   });
 
@@ -84,6 +89,40 @@ async function executeConnect(options: ConnectOptions): Promise<void> {
   bridge.on('stopped', () => {
     console.log(chalk.yellow('Bridge stopped'));
   });
+
+  // Handle recording events if recording is enabled
+  if (!options.noRecord) {
+    bridge.on('recording-stopped', async (recording) => {
+      console.log(chalk.green('📹 Recording stopped'));
+      console.log(chalk.cyan(`   Duration: ${((recording.metadata.endTime - recording.metadata.startTime) / 1000).toFixed(1)}s`));
+      console.log(chalk.cyan(`   Timeline entries: ${recording.timeline.length}`));
+      
+      if (options.output) {
+        try {
+          const fs = await import('fs/promises');
+          const path = await import('path');
+          
+          const resolvedPath = path.resolve(options.output);
+          const dir = path.dirname(resolvedPath);
+          
+          // Ensure directory exists
+          await fs.mkdir(dir, { recursive: true });
+          
+          // Save recording
+          await fs.writeFile(resolvedPath, JSON.stringify(recording, null, 2));
+          
+          console.log(chalk.green(`💾 Recording saved to: ${resolvedPath}`));
+          
+          // Show file size
+          const stats = await fs.stat(resolvedPath);
+          const sizeKB = (stats.size / 1024).toFixed(1);
+          console.log(chalk.dim(`   File size: ${sizeKB} KB`));
+        } catch (error) {
+          console.error(chalk.red('Failed to save recording:'), error);
+        }
+      }
+    });
+  }
 
   // Start bridge
   await bridge.start();

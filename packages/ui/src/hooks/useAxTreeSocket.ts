@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import type { AXNodeTree } from '@ax/core';
+import type { AXNodeTree, Recording } from '@ax/core';
 
 type SnapshotMessage = {
   type: 'snapshot';
@@ -21,7 +21,22 @@ type ConnectedMessage = {
   payload: any;
 };
 
-type WebSocketMessage = SnapshotMessage | UserEventMessage | DeltaMessage | ConnectedMessage;
+type RecordingStatusMessage = {
+  type: 'recordingStatus';
+  payload: {
+    isRecording: boolean;
+    startTime?: number;
+    timelineLength: number;
+    duration?: number;
+  };
+};
+
+type RecordingStoppedMessage = {
+  type: 'recordingStopped';
+  payload: Recording;
+};
+
+type WebSocketMessage = SnapshotMessage | UserEventMessage | DeltaMessage | ConnectedMessage | RecordingStatusMessage | RecordingStoppedMessage;
 
 interface UseAxTreeSocketOptions {
   url?: string;
@@ -34,6 +49,18 @@ export function useAxTreeSocket(options: UseAxTreeSocketOptions = {}) {
   const [tree, setTree] = useState<AXNodeTree | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  
+  // Recording state
+  const [recordingStatus, setRecordingStatus] = useState<{
+    isRecording: boolean;
+    startTime?: number;
+    timelineLength: number;
+    duration?: number;
+  }>({
+    isRecording: false,
+    timelineLength: 0
+  });
+  const [lastRecording, setLastRecording] = useState<Recording | null>(null);
   
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
@@ -81,6 +108,14 @@ export function useAxTreeSocket(options: UseAxTreeSocketOptions = {}) {
               break;
             case 'connected':
               console.log('Bridge connected:', message.payload);
+              break;
+            case 'recordingStatus':
+              setRecordingStatus(message.payload);
+              console.log('Recording status updated:', message.payload);
+              break;
+            case 'recordingStopped':
+              setLastRecording(message.payload);
+              console.log('Recording stopped, data received:', message.payload);
               break;
             default:
               console.warn('Unknown message type:', message);
@@ -134,6 +169,22 @@ export function useAxTreeSocket(options: UseAxTreeSocketOptions = {}) {
       }));
     }
   };
+
+  const startRecording = () => {
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({
+        type: 'startRecording'
+      }));
+    }
+  };
+
+  const stopRecording = () => {
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({
+        type: 'stopRecording'
+      }));
+    }
+  };
   
   useEffect(() => {
     if (autoConnect) {
@@ -149,8 +200,12 @@ export function useAxTreeSocket(options: UseAxTreeSocketOptions = {}) {
     tree,
     isConnected,
     error,
+    recordingStatus,
+    lastRecording,
     connect,
     disconnect,
-    sendHighlight
+    sendHighlight,
+    startRecording,
+    stopRecording
   };
 }

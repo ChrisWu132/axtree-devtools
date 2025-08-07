@@ -41,10 +41,6 @@ export class CdpClient extends EventEmitter {
           tab.url && 
           !tab.url.includes('localhost:5173') &&
           !tab.url.includes('127.0.0.1:5173') &&
-          !tab.url.startsWith('chrome-extension://') &&
-          !tab.url.startsWith('chrome://') &&
-          !tab.url.startsWith('about:') &&
-          !tab.url.startsWith('devtools://') &&
           tab.title !== 'DevTools'
         );
 

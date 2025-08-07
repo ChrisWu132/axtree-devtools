@@ -45,7 +45,7 @@ npx @ax/cli connect --port 9222
 | 命令 | 核心定位 | 解决的问题 |
 |---|---|---|
 | `connect` | **实时检查器**<br/>(Live Inspector) | 在无法直接打开浏览器 DevTools 的环境（如 Docker, 远程服务器, CI）进行实时调试。 |
-| `record` | **交互时间线调试器**<br/>(Interaction Timeline Debugger) | **(核心功能)** 附着到正在运行的浏览器，完整记录用户操作过程中的所有无障碍树增量变化。用于复现和排查需要复杂用户操作才能触发的 a11y bug。|
+| `connect` (auto-record) | **交互时间线调试器**<br/>(Live + Timeline) | 连接后立即进入 Live 视图并在后台自动开始录制。UI 顶部显示 ⏺️ 计时器，可随时点击 ⏹️ 停止并自动切换到 Timeline 回放。|
 
 ---
 ## 4 未来功能设想

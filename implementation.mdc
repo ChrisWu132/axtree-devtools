@@ -198,20 +198,20 @@ packages/cli/src/commands/connect.ts
 E2E：Playwright 脚本导航 github.com。断言 UI 节点文本存在。
 
 ---
-## 阶段 4 ─ 增量时间线调试器 (record)
+## 阶段 4 ─ Live + Auto-Record 统一流程 (已完成)
 
-这是项目的下一个核心里程碑，我们将实现一个高效的、基于 **增量** 的时间线录制器。
+这是项目的核心用户体验里程碑：**一个命令同时提供 Live 监控与自动录制，录制结束后可立即在同一 UI 中回放**。
 
-**核心理念：** 不再是每次交互都保存一个完整的树快照，而是只在录制开始时保存一个 **初始快照 (Initial Snapshot)**，之后每次 AX Tree 发生变化时，只记录 **树的差异 (Delta)**。这种方法将大大减小产出文件的大小，并提升录制和回放的性能。
+**核心理念：** 用户执行 `connect` 后立即看到 Live AX Tree，同时后台自动开始录制增量变化。UI 顶部显示录制状态（⏺️ 计时器），点击 ⏹️ 停止录制后自动切换到 Timeline 模式回放刚才的交互过程。
 
 ### 实现规划
 
 | 模块 | 核心任务 | 技术细节 |
 |---|---|---|
-| **@ax/cli** | `record` 命令 | 1. `axtree record --port 9222 --output timeline.json` **附着**到正在运行的浏览器。<br/>2. **在主进程中** 实例化 Bridge，并配置为录制模式。<br/>3. 监听 Bridge 发出的 `recording-stopped` 事件，然后将收集到的数据写入指定的输出文件。 |
-| **@ax/bridge** | **增量采集引擎** | 1. 启动时，获取并存储完整的 **初始无障碍树**。<br/>2. 监听 CDP 的 `Accessibility.nodesUpdated` 事件。<br/>3. 当事件触发时，**计算新树与前一状态树的差异 (delta)**，并将这个 `delta` 和触发它的用户输入事件（如 click, keydown）一同存储。<br/>4. `stopRecording()` 时，将包含初始快照和一系列 delta 的完整 `Recording` 对象返回给 CLI。|
-| **@ax/core** | **数据结构** | 在 `types.ts` 中修改 `Recording` 结构，使其包含一个 `initialSnapshot` 和一个 `timeline` 数组，数组中每个条目包含 `event` 和 `delta`。 |
-| **@ax/ui** | **增量播放器** | 1. `TimelinePlayer` 加载 `.axtree-timeline.json` 文件。<br/>2. UI 内部维护一个 **当前树状态**。初始时，显示 `initialSnapshot`。<br/>3. 当用户在时间线上移动时，**UI 动态地应用或撤销 (patch/unpatch) delta** 来从初始快照计算出任何时间点的树状态。 |
+| **@ax/cli** | `connect` 统一命令 | 1. `axtree connect --port 9222` 启动 Live + 自动录制模式。<br/>2. 可选 `--output timeline.json` 录制结束时写文件。<br/>3. 可选 `--no-record` 仅 Live 模式。<br/>4. Bridge 启动时默认 `recordingMode: true`。 |
+| **@ax/bridge** | **录制控制** | 1. 启动时自动 `startRecording(initialTree)`。<br/>2. 监听 UI 消息：`stopRecording` / `startRecording`。<br/>3. 广播录制状态：`recordingStatus` (isRecording, startTime)。<br/>4. 录制结束广播：`recordingStopped` (完整 Recording 对象)。|
+| **@ax/ui** | **Live + Timeline 切换** | 1. Header 新增录制控件：⏺️/⏹️ 按钮 + 计时器。<br/>2. 全局状态管理：`mode`, `recordingStatus`, `currentRecording`。<br/>3. 点击 ⏹️ → 发送 `stopRecording` → 收到 Recording → 自动切换 Timeline。<br/>4. Timeline 从内存对象播放（无需文件加载）。 |
+| **@ax/core** | **类型完善** | Recording, TimelineEntry, UserInteractionEvent 类型已完成。 |
 
 ### 数据结构示例 (`.axtree-timeline.json`)
 ```ts

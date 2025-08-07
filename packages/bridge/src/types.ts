@@ -22,7 +22,22 @@ export interface HighlightMsg {
   };
 }
 
-export type BridgeMessage = SnapshotMsg | UserEvtMsg | DeltaMsg | HighlightMsg;
+export interface RecordingStatusMsg {
+  type: 'recordingStatus';
+  payload: {
+    isRecording: boolean;
+    startTime?: number;
+    timelineLength: number;
+    duration?: number;
+  };
+}
+
+export interface RecordingStoppedMsg {
+  type: 'recordingStopped';
+  payload: any; // Recording object
+}
+
+export type BridgeMessage = SnapshotMsg | UserEvtMsg | DeltaMsg | HighlightMsg | RecordingStatusMsg | RecordingStoppedMsg;
 
 export interface CDPInputEvent {
   type: string;

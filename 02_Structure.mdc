@@ -23,7 +23,7 @@ graph TD;
     Bridge --uses--> Core
     Bridge --CDP WS--> Chrome
     Bridge --WS JSON--> UI
-    UI --highlight / snapshot--> Bridge
+    UI --highlight / record control--> Bridge
 ```
 
 > • CLI 仅负责编排（启动 Bridge / UI）
@@ -69,7 +69,7 @@ packages/cli/
 ├── src/
 │   ├── commands/
 │   │   ├── connect.ts   # Logic for the 'connect' command
-│   │   ├── record.ts    # (future) Start a recording session
+│   │   ├── connect.ts   # Live + Auto-Record unified command
 │   │   ├── replay.ts    # (future) Replay a previously recorded session
 │   │   └── snapshot.ts  # (future) Capture AX Tree snapshot in CI
 │   └── index.ts         # Main CLI entry (commander)
@@ -164,7 +164,7 @@ graph TD;
     Bridge --uses--> Core
     Bridge --CDP WS--> Chrome
     Bridge --WS JSON--> UI
-    UI --highlight / snapshot--> Bridge
+    UI --highlight / record control--> Bridge
 ```
 
 > • CLI 仅负责编排（启动 Bridge / UI）
@@ -210,7 +210,7 @@ packages/cli/
 ├── src/
 │   ├── commands/
 │   │   ├── connect.ts   # Logic for the 'connect' command
-│   │   ├── record.ts    # (future) Start a recording session
+│   │   ├── connect.ts   # Live + Auto-Record unified command
 │   │   ├── replay.ts    # (future) Replay a previously recorded session
 │   │   └── snapshot.ts  # (future) Capture AX Tree snapshot in CI
 │   └── index.ts         # Main CLI entry (commander)

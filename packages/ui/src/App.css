@@ -882,3 +882,68 @@
     flex-wrap: wrap;
   }
 }
+
+/* Recording Controls */
+.recording-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.recording-button {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.recording-button.idle {
+  background: #28a745;
+  color: white;
+}
+
+.recording-button.idle:hover {
+  background: #218838;
+}
+
+.recording-button.recording {
+  background: #dc3545;
+  color: white;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+.recording-button.recording:hover {
+  background: #c82333;
+}
+
+.recording-icon {
+  font-size: 1.1rem;
+}
+
+.recording-text {
+  font-weight: 500;
+}
+
+.recording-controls .timeline-info {
+  background: rgba(255, 255, 255, 0.1);
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  color: #666;
+}
+
+.live-status {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}

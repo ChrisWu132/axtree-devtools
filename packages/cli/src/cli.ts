@@ -2,7 +2,6 @@
 
 import { Command } from 'commander';
 import { createConnectCommand } from './commands/connect.js';
-import { createRecordCommand } from './commands/record.js';
 import chalk from 'chalk';
 
 const program = new Command();
@@ -14,7 +13,6 @@ program
 
 // Add commands
 program.addCommand(createConnectCommand());
-program.addCommand(createRecordCommand());
 
 // Show help if no command provided
 if (process.argv.length <= 2) {

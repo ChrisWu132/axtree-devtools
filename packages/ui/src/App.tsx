@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { TreeView } from './components/TreeView';
 import { NodeDetails } from './components/NodeDetails';
 import { SearchBox } from './components/SearchBox';
 import { SearchResults } from './components/SearchResults';
 import { TimelinePlayer } from './components/TimelinePlayer';
 import { RecordingLoader } from './components/RecordingLoader';
+import { RecordingControls } from './components/RecordingControls';
 import { useAxTreeSocket } from './hooks/useAxTreeSocket';
 import type { Recording, TimelineEntry, AXNodeTree } from '@ax/core';
 import './App.css';
@@ -12,7 +13,17 @@ import './App.css';
 type AppMode = 'live' | 'timeline';
 
 function App() {
-  const { tree, isConnected, error, sendHighlight } = useAxTreeSocket();
+  const { 
+    tree, 
+    isConnected, 
+    error, 
+    recordingStatus, 
+    lastRecording, 
+    sendHighlight, 
+    startRecording, 
+    stopRecording 
+  } = useAxTreeSocket();
+  
   const [selectedNode, setSelectedNode] = useState<any>(null);
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [showSearchResults, setShowSearchResults] = useState(false);
@@ -88,6 +99,16 @@ function App() {
     setLoadingError(errorMessage);
   };
 
+  // Auto-switch to timeline mode when recording stops
+  useEffect(() => {
+    if (lastRecording && lastRecording !== currentRecording) {
+      setCurrentRecording(lastRecording);
+      setTimelineTree(lastRecording.initialSnapshot.tree);
+      setAppMode('timeline');
+      console.log('Auto-switched to timeline mode with new recording');
+    }
+  }, [lastRecording]);
+
   // Determine which tree to display
   const displayTree = appMode === 'timeline' ? timelineTree : tree;
 
@@ -114,14 +135,26 @@ function App() {
         
         <div className="header-status">
           {appMode === 'live' ? (
-            <div className="connection-status">
-              <div className={`status-indicator ${isConnected ? 'connected' : 'disconnected'}`}>
-                {isConnected ? '🟢 Connected' : '🔴 Disconnected'}
-              </div>
-              {error && (
-                <div className="error-message">
-                  ⚠️ {error}
+            <div className="live-status">
+              <div className="connection-status">
+                <div className={`status-indicator ${isConnected ? 'connected' : 'disconnected'}`}>
+                  {isConnected ? '🟢 Connected' : '🔴 Disconnected'}
                 </div>
+                {error && (
+                  <div className="error-message">
+                    ⚠️ {error}
+                  </div>
+                )}
+              </div>
+              {isConnected && (
+                <RecordingControls
+                  isRecording={recordingStatus.isRecording}
+                  startTime={recordingStatus.startTime}
+                  timelineLength={recordingStatus.timelineLength}
+                  duration={recordingStatus.duration}
+                  onStartRecording={startRecording}
+                  onStopRecording={stopRecording}
+                />
               )}
             </div>
           ) : (
