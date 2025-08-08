@@ -15,7 +15,8 @@
     "immer": "^10.1.1",
     "react": "^19.1.0",
     "react-arborist": "^3.4.3",
-    "react-dom": "^19.1.0"
+    "react-dom": "^19.1.0",
+    "jsondiffpatch": "^0.6.2"
   },
   "devDependencies": {
     "@eslint/js": "^9.30.1",

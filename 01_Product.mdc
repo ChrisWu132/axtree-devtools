@@ -1,75 +1,70 @@
 ---
 alwaysApply: true
 ---
-# AXtreeTool ─ Headless Chromium AX Tree 可视化套件
+<!-- NOTE: This document is maintained in **English**. -->
 
-AXtreeTool 让你在 **毫不打扰既有流程** 的前提下，实时查看运行中页面的无障碍树（Accessibility Tree）。
+# AXTree Tool – Product Overview
 
-* 🚫 **不再** 额外启动浏览器
-* 🖥️ **专为 Headless 场景**（CI / Docker / 远程服务器）设计
-* 🕹️ 一行 `npx` 即可附着到已开放 CDP 端口的浏览器
+AXTree Tool lets you inspect the Chromium Accessibility Tree (AXTree) of any running browser **without launching another browser window**. It is designed for headless / CI / Docker environments where opening DevTools is not possible.
 
----
-## 1 核心使用场景
-
-| 场景 | 环境示例 | 带来的价值 |
-|------|----------|-----------|
-| CI 流水线 | GitHub Actions → 启动包含 `--remote-debugging-port=9222` 的 headless Chrome | 抓取 AX Tree 快照，生成 HTML 差异报告，阻断 a11y 回归缺陷 |
-| Docker 调试 | 生产容器运行 GUI Agent + Chrome | 本地 `npx @ax/cli connect` → 浏览器打开 UI，实时增量查看容器内页面的 AX Tree |
-| 远程服务器 | 开发机 SSH 到云端，端口转发 `9222` | 对服务端渲染页面做无头调试，高亮 DOM 元素 |
+* 🖥️  Attach to any Chromium process exposing the DevTools protocol.
+* ⚡  Live tree view with incremental updates.
+* 🎞️  One-click timeline recording & playback.
 
 ---
-## 2 安装与快速开始
+## 1. Core Use-Cases
+
+| Scenario | Typical Environment | Value |
+|----------|--------------------|-------|
+| CI Pipeline | GitHub Actions running headless Chrome `--remote-debugging-port=9222` | Capture a snapshot / timeline and fail the build on regressions. |
+| Docker debugging | GUI agent + Chrome inside a container | Attach from your laptop and watch AX changes live. |
+| Remote server | SSH tunnel to a cloud machine | Headlessly debug SSR pages and highlight DOM nodes. |
+
+---
+## 2. Installation & First Run
 
 ```bash
-# ① 在被测环境内启动 headless Chrome
-chrome --headless --disable-gpu \
-       --remote-debugging-port=9222 \
-       https://your-app
+# ① Start Chrome in the target environment
+chrome --headless --remote-debugging-port=9222 https://your-app
 
-# ② 本地附着
-npx @ax/cli connect --port 9222
+# ② Attach from your workstation
+npx @ax/cli connect --port 9222  # add --output run.json to persist the recording
 ```
 
-输出示例：
+Output sample
 ```
-✔ CDP connected (target https://your-app)
-✔ Bridge listening ws://127.0.0.1:8080
+✔ Connected to https://your-app (CDP)
+✔ Bridge listening ws://127.0.0.1:5174
 ✔ UI running at http://localhost:5173  (auto-opened)
 ```
-打开页面即可实时浏览 AX Tree；点击任意节点，远端 DOM 即时高亮。
 
 ---
-## 3 CLI 命令概览 — 为开发者打造的无障碍调试工具
+## 3. CLI Commands
 
-| 命令 | 核心定位 | 解决的问题 |
-|---|---|---|
-| `connect` | **实时检查器**<br/>(Live Inspector) | 在无法直接打开浏览器 DevTools 的环境（如 Docker, 远程服务器, CI）进行实时调试。 |
-| `connect` (auto-record) | **交互时间线调试器**<br/>(Live + Timeline) | 连接后立即进入 Live 视图并在后台自动开始录制。UI 顶部显示 ⏺️ 计时器，可随时点击 ⏹️ 停止并自动切换到 Timeline 回放。|
-
----
-## 4 未来功能设想
-
-*   **离线快照 (`snapshot`)**: 在 CI 等环境中，快速抓取某一时刻的 AX Tree 快照，用于归档或自动化对比。
-*   **回归探测器 (`diff`)**: 对比两份快照，生成可视化的 HTML 报告，帮助在 Code Review 中发现潜在的 a11y 回归。
+| Command | Purpose | Problem Solved |
+|---------|---------|----------------|
+| `connect` | **Live Inspector** | Real-time AX debugging when in Docker/CI/remote environments where DevTools can't be opened. |
+| `connect` (auto-record) | **Timeline Debugger** | Starts recording immediately. The UI shows a ⏺ timer; click ⏹ to stop and jump into timeline playback. |
 
 ---
-## 5 功能一览
+## 4. Feature Matrix
 
-* **实时树视图** — 基于 react-arborist 虚拟滚动，10 万节点依旧丝滑。
-* **增量更新** — 侦听 `Accessibility.nodesUpdated`，最小粒度刷新。
-* **节点详情** — role / name / states / actions / relations 一览无遗。
-* **搜索过滤** — 按 role/name 模糊匹配并自动滚动。
-* **双向高亮** — UI 点节点 → 远端 DOM 加红框；远端焦点变 → UI 同步。
-* **脚本化 WebSocket API** — GUI Agent/脚本可订阅树事件或发起快照。
+* **Virtualised Tree View** – powered by *react-arborist*; >100k nodes remain smooth.
+* **Incremental Updates** – listens to `Accessibility.nodesUpdated`; patches the tree with minimal payload.
+* **Rich Node Panel** – roles, names, states, relations at a glance.
+* **Fuzzy Search** – search by role/name and auto-scroll to the node.
+* **Bidirectional Highlight** – click in UI → page highlights; focus change in page → UI syncs.
+* **Scriptable WebSocket API** – subscribe to tree events or trigger snapshots from automation.
 
 ---
-## 5 兼容性与依赖栈
+## 5. Compatibility & Tech Stack
 
-* **浏览器** : Chromium ≥ 100（Chrome / Edge / Brave ...）
-* **CDP 客户端** : chrome-remote-interface（默认）
-* **数据 diff** : jsondiffpatch
-* **前端栈** : React 18 + Vite
-* **Node 版本** : ≥ 18
+| Layer | Stack |
+|-------|-------|
+| Browser | Chromium ≥ 100 (Chrome / Edge / Brave …) |
+| CDP client | `chrome-remote-interface` |
+| Diff | `jsondiffpatch` |
+| Front-end | React 18 + Vite |
+| Node | ≥ 18 |
 
-如需技术实现与目录布局，请阅读 `FILE_STRUCTURE.mdc` 与 `implementation.mdc`。
+For implementation details and project layout, see `02_Structure.mdc` and `implementation.mdc`.

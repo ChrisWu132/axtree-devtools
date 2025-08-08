@@ -36,6 +36,7 @@ function convertAxTreeToTreeNodes(axTree: AXNodeTree | null): TreeNode[] {
 
 export function TreeView({ data, onNodeSelect, onNodeHighlight }: TreeViewProps) {
   const treeData = convertAxTreeToTreeNodes(data);
+  const changed = (window as any).__AX_CHANGED__ as number[] | undefined;
   
   if (!data) {
     return (
@@ -81,19 +82,22 @@ export function TreeView({ data, onNodeSelect, onNodeHighlight }: TreeViewProps)
           rowHeight={24}
           onSelect={handleSelect}
         >
-          {({ node, style, dragHandle }) => (
-            <div style={style} ref={dragHandle} className="tree-node">
-              <span className="node-role">{node.data.role}</span>
-              {node.data.name && (
-                <span className="node-name">"{node.data.name}"</span>
-              )}
-              {node.data.value && (
-                <span className="node-description" title={node.data.value}>
-                  ({node.data.value.slice(0, 50)}...)
-                </span>
-              )}
-            </div>
-          )}
+          {({ node, style, dragHandle }) => {
+            const isChanged = changed?.includes(node.data.backendNodeId || -1);
+            return (
+              <div style={style} ref={dragHandle} className={`tree-node ${isChanged ? 'changed' : ''}`}>
+                <span className="node-role">{node.data.role}</span>
+                {node.data.name && (
+                  <span className="node-name">"{node.data.name}"</span>
+                )}
+                {node.data.value && (
+                  <span className="node-description" title={node.data.value}>
+                    ({node.data.value.slice(0, 50)}...)
+                  </span>
+                )}
+              </div>
+            );
+          }}
         </Tree>
       </div>
     </div>

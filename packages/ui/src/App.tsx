@@ -4,7 +4,7 @@ import { NodeDetails } from './components/NodeDetails';
 import { SearchBox } from './components/SearchBox';
 import { SearchResults } from './components/SearchResults';
 import { TimelinePlayer } from './components/TimelinePlayer';
-import { RecordingLoader } from './components/RecordingLoader';
+// RecordingLoader removed - recordings now come from memory via WebSocket
 import { RecordingControls } from './components/RecordingControls';
 import { useAxTreeSocket } from './hooks/useAxTreeSocket';
 import type { Recording, TimelineEntry, AXNodeTree } from '@ax/core';
@@ -33,7 +33,7 @@ function App() {
   const [currentRecording, setCurrentRecording] = useState<Recording | null>(null);
   const [timelineTree, setTimelineTree] = useState<AXNodeTree | null>(null);
   const [currentTimelineEntry, setCurrentTimelineEntry] = useState<TimelineEntry | null>(null);
-  const [loadingError, setLoadingError] = useState<string | null>(null);
+  // Removed loadingError state - no longer needed
 
   const handleNodeSelect = (node: any) => {
     setSelectedNode(node);
@@ -70,7 +70,7 @@ function App() {
     setSelectedNode(null);
     setSearchResults([]);
     setShowSearchResults(false);
-    setLoadingError(null);
+    // No loading error state to clear
     
     if (mode === 'live') {
       setCurrentRecording(null);
@@ -79,12 +79,7 @@ function App() {
     }
   };
 
-  const handleRecordingLoaded = (recording: Recording) => {
-    setCurrentRecording(recording);
-    setTimelineTree(recording.initialSnapshot.tree);
-    setLoadingError(null);
-    console.log('Recording loaded successfully:', recording.metadata);
-  };
+  // Removed handleRecordingLoaded - recordings come from WebSocket
 
   const handleTimelineTreeChange = (tree: AXNodeTree) => {
     setTimelineTree(tree);
@@ -95,9 +90,7 @@ function App() {
     setCurrentTimelineEntry(entry);
   };
 
-  const handleLoadingError = (errorMessage: string) => {
-    setLoadingError(errorMessage);
-  };
+  // Removed handleLoadingError - no file loading anymore
 
   // Auto-switch to timeline mode when recording stops
   useEffect(() => {
@@ -165,12 +158,7 @@ function App() {
                 </div>
               ) : (
                 <div className="no-recording">
-                  📂 No recording loaded
-                </div>
-              )}
-              {loadingError && (
-                <div className="error-message">
-                  ⚠️ {loadingError}
+                  📼 No recording available
                 </div>
               )}
             </div>
@@ -188,17 +176,21 @@ function App() {
         </div>
       )}
 
-      <main className="app-main">
+      <main className="app-main two-columns">
         {appMode === 'timeline' && !currentRecording ? (
-          <div className="timeline-loader-container">
-            <RecordingLoader 
-              onRecordingLoaded={handleRecordingLoaded}
-              onError={handleLoadingError}
-            />
+          <div className="no-recording-message">
+            <h3>No Recording Available</h3>
+            <p>Switch to Live Mode and stop a recording to view timeline playback.</p>
+            <button 
+              className="mode-button"
+              onClick={() => handleModeSwitch('live')}
+            >
+              🔴 Go to Live Mode
+            </button>
           </div>
         ) : (
           <>
-            <div className="tree-panel">
+            <div className="tree-panel wide">
               <TreeView 
                 data={displayTree}
                 onNodeSelect={handleNodeSelect}
@@ -211,35 +203,41 @@ function App() {
                 />
               )}
             </div>
-            
-            <div className="details-panel">
-              <NodeDetails selectedNode={selectedNode} />
-              {appMode === 'timeline' && currentTimelineEntry && (
-                <div className="timeline-entry-info">
-                  <h4>Timeline Entry Details</h4>
-                  <div className="entry-timestamp">
-                    Time: {new Date(currentTimelineEntry.timestamp).toLocaleTimeString()}
-                  </div>
-                  {currentTimelineEntry.event && (
-                    <div className="entry-event">
-                      <strong>Event:</strong> {currentTimelineEntry.event.type}
+            {/* Right column: Timeline player on top, Node details below */}
+            <div className="right-column">
+              {appMode === 'timeline' && currentRecording && (
+                <div className="timeline-panel right">
+                  <TimelinePlayer
+                    recording={currentRecording}
+                    onTreeChange={handleTimelineTreeChange}
+                    onTimelineEntryChange={handleTimelineEntryChange}
+                  />
+                </div>
+              )}
+              <div className="details-panel bottom-right">
+                <div className="details-top">
+                  <NodeDetails selectedNode={selectedNode} />
+                </div>
+                <div className="details-bottom">
+                  {appMode === 'timeline' && currentTimelineEntry && (
+                    <div className="timeline-entry-info">
+                      <h4>Timeline Entry Details</h4>
+                      <div className="entry-timestamp">
+                        Time: {new Date(currentTimelineEntry.timestamp).toLocaleTimeString()}
+                      </div>
+                      {currentTimelineEntry.event && (
+                        <div className="entry-event">
+                          <strong>Event:</strong> {currentTimelineEntry.event.type}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
-              )}
+              </div>
             </div>
           </>
         )}
-        
-        {appMode === 'timeline' && currentRecording && (
-          <div className="timeline-panel">
-            <TimelinePlayer
-              recording={currentRecording}
-              onTreeChange={handleTimelineTreeChange}
-              onTimelineEntryChange={handleTimelineEntryChange}
-            />
-          </div>
-        )}
+
       </main>
     </div>
   );

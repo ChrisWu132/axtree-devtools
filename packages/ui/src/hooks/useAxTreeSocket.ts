@@ -3,7 +3,7 @@ import type { AXNodeTree, Recording } from '@ax/core';
 
 type SnapshotMessage = {
   type: 'snapshot';
-  payload: AXNodeTree;
+  payload: { tree: AXNodeTree; changedNodeIds?: number[] } | AXNodeTree;
 };
 
 type UserEventMessage = {
@@ -87,7 +87,13 @@ export function useAxTreeSocket(options: UseAxTreeSocketOptions = {}) {
           
           switch (message.type) {
             case 'snapshot':
-              setTree(message.payload);
+              if ((message.payload as any)?.tree) {
+                const { tree, changedNodeIds } = message.payload as any;
+                (window as any).__AX_CHANGED__ = changedNodeIds || [];
+                setTree(tree);
+              } else {
+                setTree(message.payload as any);
+              }
               console.log('Full tree snapshot received');
               break;
             case 'delta':

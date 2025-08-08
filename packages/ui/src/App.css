@@ -122,12 +122,16 @@
   height: calc(100vh - 160px);
 }
 
+.app-main.two-columns { display: grid; grid-template-columns: 3fr 2fr; gap: 0; }
+
 .tree-panel {
   flex: 3;
   border-right: 1px solid #e9ecef;
   overflow: hidden;
   background: white;
 }
+
+.tree-panel.wide { flex: 4; }
 
 .details-panel {
   flex: 2;
@@ -136,6 +140,15 @@
   overflow-y: auto;
   border-left: 1px solid #e9ecef;
 }
+
+.details-panel.bottom-right {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.details-top { flex: 1; overflow: auto; }
+.details-bottom { border-top: 1px solid #e9ecef; padding-top: 0.75rem; }
 
 .details-panel h3 {
   margin: 0 0 1rem 0;
@@ -427,7 +440,8 @@
 
 /* Tree Node Styles */
 .tree-node {
-  display: flex;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
   align-items: center;
   gap: 0.5rem;
   padding: 0.25rem 0.5rem;
@@ -460,12 +474,23 @@
 .node-name {
   color: #059669;
   font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .node-description {
   color: #6b7280;
   font-style: italic;
   font-size: 0.8125rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tree-node.changed {
+  background: #fff7e6;
+  box-shadow: inset 2px 0 0 #faad14;
 }
 
 /* Tree scrollbar styling */
@@ -542,12 +567,41 @@
 }
 
 /* Timeline Loader */
-.timeline-loader-container {
+/* No recording message */
+.no-recording-message {
   flex: 1;
   display: flex;
-  align-items: center;
+  flex-direction: column;
   justify-content: center;
+  align-items: center;
+  min-height: 400px;
   padding: 2rem;
+  text-align: center;
+}
+
+.no-recording-message h3 {
+  margin-bottom: 1rem;
+  color: #666;
+}
+
+.no-recording-message p {
+  margin-bottom: 1.5rem;
+  color: #888;
+}
+
+.no-recording-message .mode-button {
+  background: #4CAF50;
+  color: white;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: background-color 0.2s;
+}
+
+.no-recording-message .mode-button:hover {
+  background: #45a049;
 }
 
 .recording-loader {
@@ -703,6 +757,11 @@
   padding: 1rem;
   min-height: 200px;
 }
+
+.timeline-panel.right { border-top: none; border-left: 1px solid #e9ecef; }
+
+.right-column { display: flex; flex-direction: column; border-left: 1px solid #e9ecef; }
+.right-column .timeline-panel { border-left: none; border-bottom: 1px solid #e9ecef; }
 
 .timeline-player {
   background: white;

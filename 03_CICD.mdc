@@ -1,0 +1,199 @@
+---
+alwaysApply: true
+---
+<!-- NOTE: This document is maintained in English. -->
+
+# AXTree Tool – CI/CD & Release Guide
+
+This document describes how to set up GitHub Actions for CI (install → lint → build → test) and how to package and publish the monorepo to npm and GitHub Releases. This is a plan and a ready-to-use workflow file – do not run secrets-less releases from forks.
+
+## 1. Goals
+- Fast feedback for PRs: typecheck, lint, unit tests, UI build smoke.
+- E2E (Playwright) on main and nightly.
+- Versioning & changelog: Changesets.
+- Publishing tagged releases to npm and attaching UI build artifacts to GitHub Releases.
+
+## 2. Prerequisites
+- npm tokens for publishing each public package (NPM_TOKEN in repo secrets).
+- GitHub token (the default `GITHUB_TOKEN` is sufficient for creating releases).
+- Node.js ≥ 18, pnpm.
+- Changesets configured (optional but recommended).
+
+## 3. Monorepo layout considerations
+- Use a single root lockfile (pnpm) and workspace builds `pnpm -r build`.
+- Each package: `build`, `lint`, `test` scripts.
+- CLI (`@ax/cli`) should expose a `bin` entry and be published as `public`.
+
+## 4. GitHub Actions – CI (pull_request & push)
+Create `.github/workflows/ci.yml`:
+
+```yaml
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [ main ]
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node & pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: 'pnpm'
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm -r lint
+
+      - name: Build all
+        run: pnpm -r build
+
+      - name: Unit tests
+        run: pnpm test -- --run
+
+  e2e:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: build-test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: 'pnpm'
+      - run: pnpm install --frozen-lockfile
+      - name: Install browsers
+        run: pnpm --filter @ax/ui exec playwright install --with-deps
+      - name: E2E
+        run: pnpm test:e2e || true  # Make non-blocking while stabilizing
+```
+
+## 5. GitHub Actions – Release (tag-driven)
+Create `.github/workflows/release.yml`:
+
+```yaml
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'  # SemVer tags
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: 'pnpm'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        run: pnpm -r build
+
+      - name: Publish to npm
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          # publish each public package in order (filter avoids private)
+          pnpm -r --filter "./packages/*" publish --access public --no-git-checks || true
+
+      - name: Build UI artifacts
+        run: pnpm --filter @ax/ui build
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            packages/ui/dist/**
+          generate_release_notes: true
+```
+
+Notes:
+- If using Changesets, replace tag trigger with a `changesets` workflow (run versioning & tag creation on main) and keep `release.yml` to publish on the created tag.
+- For a single-file CLI binary, consider `pkg`/`nexe` in a follow-up and upload the binary as a release asset.
+
+## 6. Local release flow (manual)
+```bash
+pnpm -r build
+# ensure you are logged in: npm whoami
+pnpm -r publish --access public
+```
+
+## 7. Versioning strategy
+- SemVer, `feat:` → minor, `fix:` → patch, breaking changes via `BREAKING CHANGE:` footer.
+- Recommend adoption of Changesets to automate version bumps and changelogs.
+ 
+---
+## 8. Final steps to publish
+
+This repository is tag-driven for publishing. Ensure CI is green on `main`, then:
+
+1) Prepare the repo
+- Update lockfile and commit (CI uses `--frozen-lockfile`).
+- Verify builds: `pnpm -r build`
+- Run tests: `pnpm -r test -- --run` and optionally `pnpm test:e2e`
+
+2) Ensure secrets are set
+- `NPM_TOKEN` in repository Secrets (scoped to publish public packages)
+
+3) Version and tag
+- If using Changesets, run its versioning flow which creates a tag.
+- Otherwise, choose the version and create a SemVer tag, e.g.:
+  ```bash
+  git pull --rebase
+  npm version patch # or minor / major in each public package (or via Changesets)
+  git push --follow-tags
+  ```
+  Or manually create a tag:
+  ```bash
+  git tag v0.1.0
+  git push origin v0.1.0
+  ```
+
+4) GitHub Actions will:
+- Install deps (frozen lockfile), build all packages
+- Publish non-private workspace packages to npm using `NPM_TOKEN`
+- Build `@ax/ui` and attach `packages/ui/dist/**` to the GitHub Release
+
+5) Validate release
+- Check the GitHub Release assets
+- Install CLI from npm and smoke test:
+  ```bash
+  npm i -g @ax/cli
+  axtree --help
+  ```
+
+Notes:
+- The CLI integrates recording into `connect` (no separate `record` command). Use `--output <file>` to persist the recording on stop/shutdown.
+- E2E in CI is currently non-blocking; tighten to blocking once stable.

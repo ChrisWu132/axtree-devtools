@@ -1,34 +1,31 @@
 ---
 alwaysApply: true
 ---
-# AXtreeTool Implementation Roadmap
+<!-- NOTE: This document is maintained in **English**. -->
 
-> 本路线图面向“第一次落地”团队成员，假设已读完 `01_Product.mdc` 与 `02_Structure.mdc`。
-> 所有命令均以 pnpm 为前提，根目录已 `pnpm install`。
+# AXTree Tool – Implementation Roadmap
+
+> This roadmap targets first landing contributors. Read `01_Product.mdc` and `02_Structure.mdc` first. All commands assume pnpm at repo root after `pnpm install`.
 
 ---
-## 阶段 0 ─ 基础仓库初始化
+## Phase 0 — Repository bootstrap
 
-| Step | 目标 | 操作 | 产物 |
-|------|------|------|------|
-| 0-1 | 初始化 monorepo | `pnpm init -y && pnpm add -D typescript ts-node`<br/>创建 `pnpm-workspace.yaml` | 根层 package.json / tsconfig.base.json |
-| 0-2 | ESLint & Prettier | `pnpm add -D eslint @typescript-eslint/parser prettier lint-staged husky`<br/>`npx eslint --init` | `.eslintrc.cjs` `.prettierrc` `lint-staged.config.js`|
-| 0-3 | Vitest | `pnpm add -D vitest @vitest/coverage-c8` | `vitest.config.ts` |
-| 0-4 | GitHub CI | 新建 `.github/workflows/ci.yml` （安装 → lint → test） | ci.yml |
+| Step | Goal | Action | Artifact |
+|------|------|--------|----------|
+| 0-1 | Init monorepo | base TS config | root package.json / tsconfig.base.json |
+| 0-2 | ESLint & Prettier | add lint + format tooling | `.eslintrc.cjs` `.prettierrc` `lint-staged.config.js`|
+| 0-3 | Vitest | add unit test runner | `vitest.config.ts` |
+| 0-4 | GitHub CI | create CI workflow (install → lint → test) | ci.yml |
 
-✅ CI 绿灯之后进入阶段 1。
+### 0.x Reference configs
 
-### 0.x 关键配置示例
-
-#### 包内 package.json 样板 (以 `@ax/cli` 为例)
+#### Example package.json (`@ax/cli`)
 ```jsonc
 {
   "name": "@ax/cli",
   "version": "0.1.0",
   "description": "Headless AXTree CLI",
-  "bin": {
-    "axtree": "dist/cli.js"
-  },
+  "bin": { "axtree": "dist/cli.js" },
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": ["dist"],
@@ -37,19 +34,11 @@ alwaysApply: true
     "test": "vitest",
     "lint": "eslint src --ext .ts",
     "prepublishOnly": "npm run build && npm test"
-  },
-  "dependencies": {
-    "commander": "^11.0.0"
-  },
-  "devDependencies": {
-    "typescript": "^5.4.0",
-    "vitest": "^0.34.0",
-    "@types/node": "latest"
   }
 }
 ```
 
-#### tsconfig.pkg.json（各包继承）
+#### tsconfig.pkg.json (per package)
 ```jsonc
 {
   "extends": "../../tsconfig.base.json",
@@ -63,197 +52,121 @@ alwaysApply: true
 }
 ```
 
-> 每个包的 `build` 脚本指向 `tsc -p tsconfig.pkg.json`，即可同时输出 JS 和 `.d.ts`。
-
 `pnpm-workspace.yaml`
 ```yaml
 packages:
   - "packages/*"
 ```
 
-`tsconfig.base.json`
-```jsonc
-{
-  "compilerOptions": {
-    "target": "ES2020",
-    "module": "ESNext",
-    "moduleResolution": "Node",
-    "strict": true,
-    "esModuleInterop": true,
-    "types": ["node"],
-    "rootDir": ".",
-    "composite": true
-  }
-}
-```
-
-`.eslintrc.cjs`
-```js
-module.exports = {
-  extends: ["eslint:recommended", "plugin:@typescript-eslint/recommended"],
-  parser: "@typescript-eslint/parser",
-  plugins: ["@typescript-eslint"],
-};
-```
-
+> Each package uses `tsc -p tsconfig.pkg.json` to emit JS and `.d.ts`.
 
 ---
-## 阶段 1 ─ Core & Bridge MVP（命令：connect + 全量树）
+## Phase 1 — Core & Bridge MVP (connect + full tree)
 
-### 1.1 创建 `@ax/core`
-
+### 1.1 Create `@ax/core`
 ```
 packages/core/src/
 ├─ types.ts        // export type AXNodeFlat, AXNodeTree, Diff
 ├─ parser.ts       // export function buildTree(list: AXNodeFlat[]): AXNodeTree
 └─ index.ts        // re-export
 ```
+Tests: `packages/core/tests/parser.spec.ts`
 
-测试：`packages/core/tests/parser.spec.ts`
-```
-import { expect, test } from 'vitest';
-import { buildTree } from '../src/parser';
-
-// mock 3-node flat list
-```
-
-### 1.2 创建 `@ax/bridge`
-
+### 1.2 Create `@ax/bridge`
 ```
 packages/bridge/src/
 ├─ CdpClient.ts         // class CdpClient { enableDomains(); getFullAXTree(); onNodesUpdated(cb) }
 ├─ WebSocketServer.ts   // wraps ws, topic-based broadcast
-├─ index.ts             // CLI 调用入口：new Bridge(port, host)
+├─ index.ts             // Bridge service bootstrap
 └─ mocks/ (for vitest)  // stub CDP responses
 ```
 
-#### Bridge 消息格式（Browser → UI）
+#### Bridge message types (Browser → UI)
 ```ts
 // packages/bridge/src/types.ts
-type SnapshotMsg = {
-  type: 'snapshot';
-  payload: AXNodeTree;
-};
-
-type UserEvtMsg = {
-  type: 'userEvent';
-  payload: CDPInputEvent | DomEvent;
-};
-
-type DeltaMsg = {
-  type: 'delta';
-  payload: JsonDiffPatchDelta;
-};
+type SnapshotMsg = { type: 'snapshot'; payload: AXNodeTree };
+type UserEvtMsg = { type: 'userEvent'; payload: CDPInputEvent | DomEvent };
+type DeltaMsg = { type: 'delta'; payload: JsonDiffPatchDelta };
 ```
-
-
-测试：`CdpClient.spec.ts` 使用 vitest + msw nodeMock。
 
 ### 1.3 CLI connect
+Features:
+1. Validate params → ping `http://host:port/json/version`.
+2. Dynamically start Bridge.
+3. Start UI dev server (`pnpm --filter @ax/ui dev`).
 
-```
-packages/cli/src/commands/connect.ts
-```
-功能：
-1. 校验参数 → ping `http://host:port/json/version`。
-2. `import("@ax/bridge")` 动态启动 Bridge（child_process.fork）。
-3. 启动 UI dev 服务器（`pnpm --filter @ax/ui dev`）。
-
-单元测试：`connect.spec.ts` 使用 `vi.mock('child_process')`。
-
-> 到此可在终端执行：
+> At this point you can run:
 > ```bash
 > pnpm cli connect --port 9222
 > ```
-> 用浏览器打开 localhost:5173，虽然 UI 为空，但 Network 能看到 `/ax-tree` payload。
 
 ---
-## 阶段 2 ─ UI Minimum Feature
+## Phase 2 — UI Minimum Feature
 
-### 2.1 Vite + React 脚手架（已由 filter dev 启动）
-目录见 `FILE_STRUCTURE.mdc`。
+### 2.1 Vite + React scaffolding (see structure doc)
 
 ### 2.2 WebSocket hook
-`useAxTreeSocket.ts`：保持与 Bridge 的 WS，收到 `type:'snapshot'` → setTree。
+`useAxTreeSocket.ts`: keep WS; on `snapshot` set tree.
 
-### 2.3 TreeView 组件
-采用 **react-arborist**：
-```tsx
-<Tree data={treeData} rowHeight={22} onSelect={setActive} />
-```
+### 2.3 TreeView (react-arborist)
+Tests: testing-library with 10k nodes.
 
-测试：`TreeView.spec.tsx` 使用 vitest + testing-library React，mock 10000 节点渲染，不应卡死。
-
-### 2.4 高亮交互
-点击节点 → WS `highlight:{backendNodeId}` → Bridge → CDP Runtime.evaluate outline。
+### 2.4 Highlight interaction
+Click node → WS `highlight:{backendNodeId}` → Bridge → CDP Overlay.highlight.
 
 ---
-## 阶段 3 ─ 增量更新 & 体验 (已完成)
+## Phase 3 — Incremental updates & UX (done)
 
-1. Bridge 订阅 `Accessibility.nodesUpdated` → payload `type:'delta'`。 
-2. core/diff.ts 使用 **jsondiffpatch** 计算 delta（或直接转发节点列表）。
-3. UI `state.ts` 使用 immer 以 delta 更新。
-4. 节点详情面板，搜索框等。
+1. Bridge subscribes `Accessibility.nodesUpdated` → `delta` payload.
+2. `core/diff.ts` via jsondiffpatch.
+3. UI state updates via patches.
+4. Node details, search, etc.
 
-E2E：Playwright 脚本导航 github.com。断言 UI 节点文本存在。
+E2E: Playwright navigates github.com and asserts UI text exists.
 
 ---
-## 阶段 4 ─ Live + Auto-Record 统一流程 (已完成)
+## Phase 4 — Live + Auto-Record unified flow (done)
 
-这是项目的核心用户体验里程碑：**一个命令同时提供 Live 监控与自动录制，录制结束后可立即在同一 UI 中回放**。
+One command provides Live monitoring and Auto-Recording; stopping instantly switches UI to Timeline playback.
 
-**核心理念：** 用户执行 `connect` 后立即看到 Live AX Tree，同时后台自动开始录制增量变化。UI 顶部显示录制状态（⏺️ 计时器），点击 ⏹️ 停止录制后自动切换到 Timeline 模式回放刚才的交互过程。
-
-### 实现规划
-
-| 模块 | 核心任务 | 技术细节 |
+### Plan
+| Module | Task | Detail |
 |---|---|---|
-| **@ax/cli** | `connect` 统一命令 | 1. `axtree connect --port 9222` 启动 Live + 自动录制模式。<br/>2. 可选 `--output timeline.json` 录制结束时写文件。<br/>3. 可选 `--no-record` 仅 Live 模式。<br/>4. Bridge 启动时默认 `recordingMode: true`。 |
-| **@ax/bridge** | **录制控制** | 1. 启动时自动 `startRecording(initialTree)`。<br/>2. 监听 UI 消息：`stopRecording` / `startRecording`。<br/>3. 广播录制状态：`recordingStatus` (isRecording, startTime)。<br/>4. 录制结束广播：`recordingStopped` (完整 Recording 对象)。|
-| **@ax/ui** | **Live + Timeline 切换** | 1. Header 新增录制控件：⏺️/⏹️ 按钮 + 计时器。<br/>2. 全局状态管理：`mode`, `recordingStatus`, `currentRecording`。<br/>3. 点击 ⏹️ → 发送 `stopRecording` → 收到 Recording → 自动切换 Timeline。<br/>4. Timeline 从内存对象播放（无需文件加载）。 |
-| **@ax/core** | **类型完善** | Recording, TimelineEntry, UserInteractionEvent 类型已完成。 |
+| **@ax/cli** | `connect` unified | Auto-record by default; `--output` to persist; `--no-record` for live-only. |
+| **@ax/bridge** | Recording control | Auto `startRecording(initialTree)`; handle `startRecording`/`stopRecording`; broadcast `recordingStatus` & `recordingStopped`. |
+| **@ax/ui** | Live/Timeline switch | Header controls ⏺️/⏹️ + timer; global state `mode`, `recordingStatus`, `currentRecording`; swap to Timeline on stop. |
+| **@ax/core** | Types | Recording, TimelineEntry, UserInteractionEvent done. |
 
-### 数据结构示例 (`.axtree-timeline.json`)
+### Data structure example (`.axtree-timeline.json`)
 ```ts
 // packages/core/src/types.ts
 
-// Delta (差异) 的具体格式由 jsondiffpatch 定义
+// Delta shape is defined by jsondiffpatch
 type AXNodeTreeDelta = object; 
 
 interface TimelineEntry {
   timestamp: number;
-  // 触发变化的事件
+  // Causing event
   event?: { type: string; details: any; };
-  // 从前一状态到当前状态的树的差异
+  // Tree delta
   delta: AXNodeTreeDelta; 
 }
 
 interface Recording {
   metadata: { /* ... */ };
-  // 录制开始时的完整树
+  // Initial snapshot
   initialSnapshot: AXNodeTree;
-  // 后续所有变化的时间线
+  // Timeline entries
   timeline: TimelineEntry[];
 }
 ```
 
 ---
-## 阶段 5 ─ E2E 测试 & 硬化
-
-1.  **E2E 测试:**
-    *   创建 `tests/e2e/record.spec.ts`。
-    *   测试场景：启动 `record` 命令录制一个包含特定交互（如点击按钮）的简单页面。
-    *   断言：验证生成的 `.axtree-timeline.json` 文件中是否包含正确的 `initialSnapshot` 和预期的 `delta`。
-2.  **硬化:**
-    *   确保 `patch` 和 `unpatch` 在各种边界情况下都能正确工作。
-    *   优化 `delta` 计算的性能。
-3.  **发布:**
-    *   将 `@ax/cli` 打包为 `bin` 并发布到 npm。
+## Phase 5 — E2E & Hardening
+1. **E2E:** Test auto-record & timeline playback across simple pages.
+2. **Hardening:** Validate patch/unpatch edge-cases; optimize diff performance.
+3. **Release:** Publish `@ax/cli` to npm.
 
 ---
-## 未来功能
-
-| 命令 | 核心定位 | 实现思路 |
-|---|---|---|
-| `snapshot` | **离线快照查看器** | 启动 headless Chrome 捕获单点的 AX Tree 并保存为 `.axtree` 文件。|
-| `diff` | **无障碍回归探测器** | 对比两个 `.axtree` 文件并生成 HTML 差异报告。|
+## Future
+- `snapshot`, `diff` as optional follow-ups for CI reporting.

@@ -15,10 +15,10 @@ export interface RecorderOptions {
 }
 
 /**
- * 增量录制引擎
- * 
- * 负责记录无障碍树的变化和用户交互事件，
- * 使用增量存储策略（初始快照 + 后续 delta）来优化性能和存储空间。
+ * Incremental recording engine.
+ * Records AX tree changes and user interaction events.
+ * Uses an incremental storage strategy (initial snapshot + subsequent deltas)
+ * to optimize payload size and playback speed.
  */
 export class Recorder extends EventEmitter {
   private isRecording = false;
@@ -27,20 +27,21 @@ export class Recorder extends EventEmitter {
   private timeline: TimelineEntry[] = [];
   private startTime: number = 0;
   private options: RecorderOptions;
+  private lastSerializedTree: string | null = null;
   
   constructor(options: RecorderOptions = {}) {
     super();
     this.options = {
-      maxTimelineEntries: 10000, // 默认最多记录 10k 条时间线条目
+      maxTimelineEntries: 10000, // default max 10k timeline entries
       ...options
     };
   }
 
   /**
-   * 开始录制
-   * @param initialTree 录制开始时的无障碍树
-   * @param url 当前页面 URL
-   * @param title 当前页面标题
+   * Start recording
+   * @param initialTree AX tree at the start of recording
+   * @param url Optional current page URL
+   * @param title Optional page title
    */
   startRecording(initialTree: AXNodeTree, url?: string, title?: string): void {
     if (this.isRecording) {
@@ -55,7 +56,8 @@ export class Recorder extends EventEmitter {
       url,
       title
     };
-    this.currentTree = JSON.parse(JSON.stringify(initialTree)); // 深拷贝
+    this.currentTree = JSON.parse(JSON.stringify(initialTree)); // deep clone
+    this.lastSerializedTree = this.stableStringify(this.currentTree);
     this.timeline = [];
     this.isRecording = true;
 
@@ -64,7 +66,7 @@ export class Recorder extends EventEmitter {
   }
 
   /**
-   * 停止录制并返回完整的录制数据
+   * Stop recording and return the full recording payload
    */
   stopRecording(): Recording {
     if (!this.isRecording || !this.initialSnapshot) {
@@ -81,10 +83,10 @@ export class Recorder extends EventEmitter {
         version: '1.0.0'
       },
       initialSnapshot: this.initialSnapshot,
-      timeline: [...this.timeline] // 拷贝时间线
+      timeline: [...this.timeline] // clone timeline
     };
 
-    // 清理状态
+    // Reset internal state
     this.isRecording = false;
     this.initialSnapshot = null;
     this.currentTree = null;
@@ -97,23 +99,33 @@ export class Recorder extends EventEmitter {
   }
 
   /**
-   * 记录无障碍树的变化
-   * @param newTree 新的无障碍树状态
-   * @param event 可选的触发此变化的用户交互事件
+   * Record an AX tree change
+   * @param newTree Next AX tree state
+   * @param event Optional user interaction event
    */
   recordTreeChange(newTree: AXNodeTree, event?: UserInteractionEvent): void {
     if (!this.isRecording || !this.currentTree) {
+      console.log('Not recording or no current tree available');
       return;
     }
 
     try {
-      // 计算当前树与新树之间的差异
+      // Avoid false positives by comparing stable-serialized snapshots first
+      const serializedNew = this.stableStringify(newTree);
+      if (this.lastSerializedTree === serializedNew) {
+        return; // No structural change
+      }
+
+      // Compute delta between current and new tree
       const delta = computeDelta(this.currentTree, newTree);
       
-      // 如果没有差异，跳过
+      // Skip if no changes
       if (!delta || Object.keys(delta).length === 0) {
+        console.log('No changes detected in tree, skipping timeline entry');
         return;
       }
+
+      console.log('Recording tree change with delta:', Object.keys(delta).length, 'changes');
 
       const timelineEntry: TimelineEntry = {
         timestamp: Date.now(),
@@ -123,14 +135,15 @@ export class Recorder extends EventEmitter {
 
       this.timeline.push(timelineEntry);
       
-      // 检查是否超过最大条目数
+      // Enforce max timeline length
       if (this.options.maxTimelineEntries && this.timeline.length > this.options.maxTimelineEntries) {
-        this.timeline.shift(); // 移除最老的条目
+        this.timeline.shift(); // drop oldest entry
         console.warn(`Timeline entries exceeded maximum (${this.options.maxTimelineEntries}), removing oldest entry`);
       }
 
-      // 更新当前树状态
+      // Update current snapshot
       this.currentTree = JSON.parse(JSON.stringify(newTree));
+      this.lastSerializedTree = serializedNew;
 
       this.emit('timeline-entry-added', timelineEntry);
       
@@ -141,8 +154,7 @@ export class Recorder extends EventEmitter {
   }
 
   /**
-   * 记录用户交互事件（无需树变化）
-   * 某些交互可能不会立即引起无障碍树变化，但仍值得记录
+   * Record a user event even without an immediate AX change
    */
   recordUserEvent(event: UserInteractionEvent): void {
     if (!this.isRecording) {
@@ -152,7 +164,7 @@ export class Recorder extends EventEmitter {
     const timelineEntry: TimelineEntry = {
       timestamp: Date.now(),
       event,
-      delta: {} // 空的 delta，表示没有树变化
+      delta: {} // empty delta means no tree change
     };
 
     this.timeline.push(timelineEntry);
@@ -160,7 +172,7 @@ export class Recorder extends EventEmitter {
   }
 
   /**
-   * 获取当前录制状态
+   * Get current recording status
    */
   getStatus(): {
     isRecording: boolean;
@@ -177,7 +189,7 @@ export class Recorder extends EventEmitter {
   }
 
   /**
-   * 将树结构扁平化为节点数组
+   * Flatten tree to a node array representation
    */
   private flattenTree(tree: AXNodeTree): any[] {
     const result: any[] = [];
@@ -196,5 +208,22 @@ export class Recorder extends EventEmitter {
     
     flatten(tree);
     return result;
+  }
+
+  /**
+   * Deterministically stringify an object by sorting keys
+   */
+  private stableStringify(value: any): string {
+    const replacer = (_key: string, val: any) => {
+      if (val && typeof val === 'object' && !Array.isArray(val)) {
+        const sorted: Record<string, any> = {};
+        for (const k of Object.keys(val).sort()) {
+          sorted[k] = val[k];
+        }
+        return sorted;
+      }
+      return val;
+    };
+    return JSON.stringify(value, replacer);
   }
 }

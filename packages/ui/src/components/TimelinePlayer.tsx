@@ -9,7 +9,7 @@ interface TimelinePlayerProps {
 }
 
 export function TimelinePlayer({ recording, onTreeChange, onTimelineEntryChange }: TimelinePlayerProps) {
-  const [currentIndex, setCurrentIndex] = useState(0);
+  const [currentIndex, setCurrentIndex] = useState(-1);
   const [isPlaying, setIsPlaying] = useState(false);
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
   // We track the current tree state internally but don't store it as state since we recalculate it

@@ -3,6 +3,7 @@ import { WebSocketServer } from './WebSocketServer.js';
 import { Recorder } from './Recorder.js';
 import { BridgeOptions, BridgeMessage } from './types.js';
 import { AXNodeTree, Recording, UserInteractionEvent } from '@ax/core';
+import { computeDelta } from '@ax/core';
 import { EventEmitter } from 'events';
 
 export class Bridge extends EventEmitter {
@@ -11,6 +12,9 @@ export class Bridge extends EventEmitter {
   private recorder: Recorder | null = null;
   private options: BridgeOptions;
   private isRunning = false;
+  private statusUpdateInterval: NodeJS.Timeout | null = null;
+  private treePollingInterval: NodeJS.Timeout | null = null;
+  private lastTree: AXNodeTree | null = null;
 
   constructor(options: BridgeOptions) {
     super();
@@ -49,10 +53,9 @@ export class Bridge extends EventEmitter {
       // Get initial tree and broadcast
       const initialTree = await this.cdpClient.getFullAXTree();
       if (initialTree) {
-        this.broadcast({
-          type: 'snapshot',
-          payload: initialTree
-        });
+        const changedNodeIds: number[] = [];
+        this.broadcast({ type: 'snapshot', payload: { tree: initialTree, changedNodeIds } as any });
+        this.lastTree = initialTree;
 
         // Auto-start recording if recorder is available
         if (this.recorder) {
@@ -76,6 +79,10 @@ export class Bridge extends EventEmitter {
   async stop(): Promise<void> {
     this.isRunning = false;
     
+    // Stop periodic updates
+    this.stopPeriodicStatusUpdates();
+    this.stopTreePolling();
+    
     await Promise.all([
       this.cdpClient.disconnect(),
       this.wsServer.stop()
@@ -87,13 +94,16 @@ export class Bridge extends EventEmitter {
   private setupEventHandlers(): void {
     // Handle CDP events
     this.cdpClient.onTreeRefresh((tree: AXNodeTree) => {
-      this.broadcast({
-        type: 'snapshot',
-        payload: tree
-      });
+      const changedNodeIds = this.computeChangedNodeIds(this.lastTree, tree);
+      this.broadcast({ type: 'snapshot', payload: { tree, changedNodeIds } as any });
+      this.lastTree = tree;
+      if (this.recorder?.getStatus().isRecording) {
+        this.recorder.recordTreeChange(tree);
+      }
     });
 
     this.cdpClient.onNodesUpdated((nodes: any[]) => {
+      // NOTE: we rely on re-fetching the full tree to avoid partial/unstable deltas
       // Get the updated tree
       this.cdpClient.getFullAXTree().then(tree => {
         if (tree) {
@@ -103,22 +113,15 @@ export class Bridge extends EventEmitter {
           }
           
           // Broadcast to UI clients
-          this.broadcast({
-            type: 'snapshot',
-            payload: tree
-          });
+          const changedNodeIds = this.computeChangedNodeIds(this.lastTree, tree);
+          this.broadcast({ type: 'snapshot', payload: { tree, changedNodeIds } as any });
+          this.lastTree = tree;
         }
       });
     });
 
     // Handle delta updates
-    this.cdpClient.onDeltaUpdate((deltaData: any) => {
-      console.log('Broadcasting delta update to clients');
-      this.broadcast({
-        type: 'delta',
-        payload: deltaData
-      });
-    });
+    // Disable raw delta broadcast; we always fetch and broadcast full snapshots
 
     this.cdpClient.onError((error: Error) => {
       console.error('CDP Client error:', error);
@@ -140,12 +143,44 @@ export class Bridge extends EventEmitter {
           });
         }
       });
+      
+      // Send current recording status to new client
+      if (this.recorder) {
+        this.broadcastRecordingStatus();
+      }
     });
 
     this.wsServer.onError((error: Error) => {
       console.error('WebSocket server error:', error);
       this.emit('error', error);
     });
+  }
+
+  private computeChangedNodeIds(prev: AXNodeTree | null, next: AXNodeTree | null): number[] {
+    if (!prev || !next) return [];
+    const prevMap = new Map<number, any>();
+    const nextMap = new Map<number, any>();
+    const collect = (node: any, map: Map<number, any>) => {
+      if (!node) return;
+      const id = node.backendNodeId;
+      if (typeof id === 'number') {
+        map.set(id, { role: node.role, name: node.name, value: node.value });
+      }
+      if (node.children) node.children.forEach((c: any) => collect(c, map));
+    };
+    collect(prev, prevMap);
+    collect(next, nextMap);
+    const ids = new Set<number>([...prevMap.keys(), ...nextMap.keys()]);
+    const changed: number[] = [];
+    for (const id of ids) {
+      const a = prevMap.get(id);
+      const b = nextMap.get(id);
+      if (!a || !b) { changed.push(id); continue; }
+      if (a.role !== b.role || a.name !== b.name || a.value !== b.value) {
+        changed.push(id);
+      }
+    }
+    return changed;
   }
 
   private handleWebSocketMessage(message: any): void {
@@ -195,9 +230,9 @@ export class Bridge extends EventEmitter {
   }
 
   /**
-   * 开始录制会话
-   * @param url 可选的页面 URL
-   * @param title 可选的页面标题
+   * Start a recording session
+   * @param url Optional page URL
+   * @param title Optional page title
    */
   async startRecording(url?: string, title?: string): Promise<void> {
     if (!this.recorder) {
@@ -218,7 +253,7 @@ export class Bridge extends EventEmitter {
   }
 
   /**
-   * 停止录制会话并返回录制数据
+   * Stop the recording session and return the recording payload
    */
   stopRecording(): Recording {
     if (!this.recorder) {
@@ -229,7 +264,7 @@ export class Bridge extends EventEmitter {
   }
 
   /**
-   * 记录用户交互事件
+   * Record a user interaction event
    */
   recordUserEvent(event: UserInteractionEvent): void {
     if (this.recorder) {
@@ -238,7 +273,7 @@ export class Bridge extends EventEmitter {
   }
 
   /**
-   * 获取录制状态
+   * Get current recording status
    */
   getRecordingStatus(): { 
     isRecordingModeEnabled: boolean; 
@@ -259,7 +294,7 @@ export class Bridge extends EventEmitter {
   }
 
   /**
-   * 处理开始录制请求
+   * Handle UI request to start recording
    */
   private async handleStartRecording(): Promise<void> {
     if (!this.recorder) {
@@ -281,7 +316,7 @@ export class Bridge extends EventEmitter {
   }
 
   /**
-   * 处理停止录制请求
+   * Handle UI request to stop recording
    */
   private handleStopRecording(): void {
     if (!this.recorder || !this.recorder.getStatus().isRecording) {
@@ -302,7 +337,7 @@ export class Bridge extends EventEmitter {
   }
 
   /**
-   * 广播录制状态
+   * Broadcast current recording status to UI clients
    */
   private broadcastRecordingStatus(): void {
     if (!this.recorder) return;
@@ -320,7 +355,7 @@ export class Bridge extends EventEmitter {
   }
 
   /**
-   * 设置录制器事件处理器
+   * Wire recorder internal events to bridge and UI clients
    */
   private setupRecorderEventHandlers(): void {
     if (!this.recorder) return;
@@ -329,6 +364,10 @@ export class Bridge extends EventEmitter {
       console.log('Recording started with initial snapshot');
       this.emit('recording-started', snapshot);
       this.broadcastRecordingStatus();
+      
+      // Start periodic status updates during recording
+      this.startPeriodicStatusUpdates();
+      this.startTreePolling();
     });
 
     this.recorder.on('recording-stopped', (recording: Recording) => {
@@ -339,6 +378,10 @@ export class Bridge extends EventEmitter {
         payload: recording
       });
       this.broadcastRecordingStatus();
+      
+      // Stop periodic status updates
+      this.stopPeriodicStatusUpdates();
+      this.stopTreePolling();
     });
 
     this.recorder.on('timeline-entry-added', (entry) => {
@@ -354,6 +397,63 @@ export class Bridge extends EventEmitter {
       console.error('Recorder error:', error);
       this.emit('error', error);
     });
+  }
+
+  /**
+   * Start periodic recording status updates for live timer
+   */
+  private startPeriodicStatusUpdates(): void {
+    if (this.statusUpdateInterval) {
+      clearInterval(this.statusUpdateInterval);
+    }
+    
+    this.statusUpdateInterval = setInterval(() => {
+      if (this.recorder?.getStatus().isRecording) {
+        this.broadcastRecordingStatus();
+      }
+    }, 1000); // Update every second
+  }
+
+  /**
+   * Stop periodic recording status updates
+   */
+  private stopPeriodicStatusUpdates(): void {
+    if (this.statusUpdateInterval) {
+      clearInterval(this.statusUpdateInterval);
+      this.statusUpdateInterval = null;
+    }
+  }
+
+  /**
+   * Start polling for accessibility tree changes during recording
+   */
+  private startTreePolling(): void {
+    if (this.treePollingInterval) {
+      clearInterval(this.treePollingInterval);
+    }
+    
+    this.treePollingInterval = setInterval(async () => {
+      if (this.recorder?.getStatus().isRecording) {
+        try {
+          const currentTree = await this.cdpClient.getFullAXTree();
+          if (currentTree && this.recorder) {
+            this.recorder.recordTreeChange(currentTree);
+          }
+        } catch (error) {
+          console.error('Error during tree polling:', error);
+        }
+      }
+    }, 500); // Poll every 500ms during recording for real-time capture
+  }
+
+  /**
+   * Stop tree polling
+   */
+  private stopTreePolling(): void {
+    if (this.treePollingInterval) {
+      clearInterval(this.treePollingInterval);
+      this.treePollingInterval = null;
+    }
   }
 }
 

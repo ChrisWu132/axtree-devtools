@@ -114,6 +114,9 @@ export class CdpClient extends EventEmitter {
     if (!updatedNodes || updatedNodes.length === 0) return;
 
     try {
+      // Notify listeners that nodes were updated
+      this.emit('nodesUpdated', updatedNodes);
+
       // Get the current full tree for comparison
       const currentTree = await this.getFullAXTree();
       

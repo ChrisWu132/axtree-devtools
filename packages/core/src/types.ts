@@ -62,12 +62,12 @@ export interface AXTreeSnapshot {
 }
 
 /**
- * Delta (差异) 的具体格式由 jsondiffpatch 定义
+ * Delta shape is defined by jsondiffpatch
  */
 export type AXNodeTreeDelta = any;
 
 /**
- * 用户交互事件
+ * User interaction event payload
  */
 export interface UserInteractionEvent {
   type: string;
@@ -76,18 +76,18 @@ export interface UserInteractionEvent {
 }
 
 /**
- * 时间线条目，包含触发变化的事件和对应的树差异
+ * Timeline entry including the causing event and the tree delta
  */
 export interface TimelineEntry {
   timestamp: number;
-  /** 触发变化的事件 */
+  /** Causing event */
   event?: UserInteractionEvent;
-  /** 从前一状态到当前状态的树的差异 */
+  /** Tree delta from previous state to next */
   delta: AXNodeTreeDelta;
 }
 
 /**
- * 完整的录制会话数据
+ * Full recording session payload
  */
 export interface Recording {
   metadata: {
@@ -97,8 +97,8 @@ export interface Recording {
     title?: string;
     version: string;
   };
-  /** 录制开始时的完整树 */
+  /** Initial snapshot */
   initialSnapshot: AXTreeSnapshot;
-  /** 后续所有变化的时间线 */
+  /** Timeline entries */
   timeline: TimelineEntry[];
 }

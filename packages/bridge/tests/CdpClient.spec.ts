@@ -3,7 +3,10 @@ import { CdpClient } from '../src/CdpClient';
 
 // Mock chrome-remote-interface
 vi.mock('chrome-remote-interface', () => ({
-  default: vi.fn()
+  default: vi.fn(),
+  List: vi.fn().mockResolvedValue([
+    { id: 'target-1', type: 'page', url: 'https://example.com', title: 'Example' }
+  ])
 }));
 
 describe('CdpClient', () => {
@@ -35,11 +38,14 @@ describe('CdpClient', () => {
       DOM: {
         enable: vi.fn().mockResolvedValue({}),
         getDocument: vi.fn().mockResolvedValue({
-          root: { nodeId: 1 }
+          root: { nodeId: 1, backendNodeId: 1, frameId: 'frame-1' }
         }),
-        highlightNode: vi.fn().mockResolvedValue({}),
-        hideHighlight: vi.fn().mockResolvedValue({}),
         documentUpdated: vi.fn()
+      },
+      Overlay: {
+        enable: vi.fn().mockResolvedValue({}),
+        highlightNode: vi.fn().mockResolvedValue({}),
+        hideHighlight: vi.fn().mockResolvedValue({})
       },
       Runtime: {
         enable: vi.fn().mockResolvedValue({})
@@ -69,6 +75,7 @@ describe('CdpClient', () => {
     expect(mockClient.DOM.enable).toHaveBeenCalled();
     expect(mockClient.Runtime.enable).toHaveBeenCalled();
     expect(mockClient.Page.enable).toHaveBeenCalled();
+    expect(mockClient.Overlay.enable).toHaveBeenCalled();
   });
 
   test('should get full accessibility tree', async () => {
@@ -87,7 +94,7 @@ describe('CdpClient', () => {
     await cdpClient.connect();
     await cdpClient.highlightNode(123);
 
-    expect(mockClient.DOM.highlightNode).toHaveBeenCalledWith({
+    expect(mockClient.Overlay.highlightNode).toHaveBeenCalledWith({
       backendNodeId: 123,
       highlightConfig: {
         borderColor: { r: 255, g: 0, b: 0, a: 1 },
@@ -100,7 +107,7 @@ describe('CdpClient', () => {
     await cdpClient.connect();
     await cdpClient.clearHighlight();
 
-    expect(mockClient.DOM.hideHighlight).toHaveBeenCalled();
+    expect(mockClient.Overlay.hideHighlight).toHaveBeenCalled();
   });
 
   test('should handle connection errors', async () => {
