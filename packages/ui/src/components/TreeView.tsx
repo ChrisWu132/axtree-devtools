@@ -6,6 +6,7 @@ interface TreeViewProps {
   data: AXNodeTree | null;
   onNodeSelect?: (node: any) => void;
   onNodeHighlight?: (backendNodeId: number) => void;
+  highlightNodeId?: number;
 }
 
 interface TreeNode {
@@ -34,7 +35,7 @@ function convertAxTreeToTreeNodes(axTree: AXNodeTree | null): TreeNode[] {
   return [convertNode(axTree)];
 }
 
-export function TreeView({ data, onNodeSelect, onNodeHighlight }: TreeViewProps) {
+export function TreeView({ data, onNodeSelect, onNodeHighlight, highlightNodeId }: TreeViewProps) {
   const treeData = convertAxTreeToTreeNodes(data);
   const changed = (window as any).__AX_CHANGED__ as number[] | undefined;
   
@@ -84,8 +85,9 @@ export function TreeView({ data, onNodeSelect, onNodeHighlight }: TreeViewProps)
         >
           {({ node, style, dragHandle }) => {
             const isChanged = changed?.includes(node.data.backendNodeId || -1);
+            const isHighlighted = highlightNodeId && node.data.backendNodeId === highlightNodeId;
             return (
-              <div style={style} ref={dragHandle} className={`tree-node ${isChanged ? 'changed' : ''}`}>
+              <div style={style} ref={dragHandle} className={`tree-node ${isChanged ? 'changed' : ''} ${isHighlighted ? 'highlighted' : ''}`}>
                 <span className="node-role">{node.data.role}</span>
                 {node.data.name && (
                   <span className="node-name">"{node.data.name}"</span>

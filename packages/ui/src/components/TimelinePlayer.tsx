@@ -183,6 +183,9 @@ export function TimelinePlayer({ recording, onTreeChange, onTimelineEntryChange 
           )}
           <div className="entry-delta">
             <strong>Changes:</strong> {Object.keys(currentEntry.delta || {}).length} delta keys
+            {Array.isArray(currentEntry.changedNodeIds) && currentEntry.changedNodeIds.length > 0 && (
+              <div><strong>Nodes:</strong> {currentEntry.changedNodeIds.slice(0, 10).join(', ')}{currentEntry.changedNodeIds.length > 10 ? '…' : ''}</div>
+            )}
           </div>
         </div>
       )}

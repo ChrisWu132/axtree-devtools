@@ -1,13 +1,11 @@
 {
   "metadata": {
-    "startTime": 1754495821592,
-    "endTime": 1754495826609,
-    "url": "https://example.com/",
-    "title": "Example Domain",
+    "startTime": 1754674238537,
+    "endTime": 1754674242408,
     "version": "1.0.0"
   },
   "initialSnapshot": {
-    "timestamp": 1754495821592,
+    "timestamp": 1754674238537,
     "tree": {
       "backendNodeId": 2,
       "role": "RootWebArea",
@@ -235,9 +233,119 @@
         "states": [],
         "childIds": []
       }
-    ],
-    "url": "https://example.com/",
-    "title": "Example Domain"
+    ]
   },
-  "timeline": []
+  "timeline": [
+    {
+      "timestamp": 1754674240571,
+      "delta": {
+        "name": [
+          "Example Domain",
+          "Modified Title"
+        ],
+        "children": {
+          "0": {
+            "children": {
+              "0": {
+                "children": {
+                  "1": [
+                    {
+                      "backendNodeId": 22,
+                      "role": "button",
+                      "name": "Test button for accessibility",
+                      "properties": {
+                        "invalid": "false",
+                        "focusable": true
+                      },
+                      "attributes": {},
+                      "states": [],
+                      "children": [
+                        {
+                          "backendNodeId": 23,
+                          "role": "StaticText",
+                          "name": "Test Button",
+                          "properties": {},
+                          "attributes": {},
+                          "states": [],
+                          "children": []
+                        }
+                      ]
+                    }
+                  ],
+                  "2": [
+                    {
+                      "backendNodeId": 25,
+                      "role": "textbox",
+                      "name": "Test input",
+                      "properties": {
+                        "invalid": "false",
+                        "focusable": true,
+                        "editable": "plaintext",
+                        "settable": true,
+                        "multiline": {
+                          "type": "boolean",
+                          "value": false
+                        },
+                        "readonly": {
+                          "type": "boolean",
+                          "value": false
+                        },
+                        "required": {
+                          "type": "boolean",
+                          "value": false
+                        },
+                        "describedby": "test-desc"
+                      },
+                      "attributes": {},
+                      "states": [],
+                      "children": [
+                        {
+                          "backendNodeId": 30,
+                          "role": "none",
+                          "attributes": {},
+                          "states": []
+                        },
+                        {
+                          "backendNodeId": 29,
+                          "role": "generic",
+                          "properties": {
+                            "editable": "plaintext"
+                          },
+                          "attributes": {},
+                          "states": []
+                        }
+                      ]
+                    }
+                  ],
+                  "3": [
+                    {
+                      "backendNodeId": 26,
+                      "role": "generic",
+                      "properties": {},
+                      "attributes": {},
+                      "states": [],
+                      "children": [
+                        {
+                          "backendNodeId": 27,
+                          "role": "StaticText",
+                          "name": "This is a test input field",
+                          "properties": {},
+                          "attributes": {},
+                          "states": [],
+                          "children": []
+                        }
+                      ]
+                    }
+                  ],
+                  "_t": "a"
+                }
+              },
+              "_t": "a"
+            }
+          },
+          "_t": "a"
+        }
+      }
+    }
+  ]
 }

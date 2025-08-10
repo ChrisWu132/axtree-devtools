@@ -1,13 +1,15 @@
 import { expect, test, describe, vi, beforeEach, afterEach } from 'vitest';
 import { CdpClient } from '../src/CdpClient';
 
-// Mock chrome-remote-interface
-vi.mock('chrome-remote-interface', () => ({
-  default: vi.fn(),
-  List: vi.fn().mockResolvedValue([
+// Mock chrome-remote-interface so that default export is callable and has a List function
+vi.mock('chrome-remote-interface', () => {
+  const mockList = vi.fn().mockResolvedValue([
     { id: 'target-1', type: 'page', url: 'https://example.com', title: 'Example' }
-  ])
-}));
+  ]);
+  const mockDefault: any = vi.fn();
+  mockDefault.List = mockList;
+  return { default: mockDefault };
+});
 
 describe('CdpClient', () => {
   let cdpClient: CdpClient;
@@ -57,9 +59,9 @@ describe('CdpClient', () => {
       close: vi.fn().mockResolvedValue({})
     };
 
-    // Mock the CDP constructor
+    // Mock the CDP constructor to resolve to our mock client
     const { default: CDP } = await import('chrome-remote-interface');
-    vi.mocked(CDP).mockResolvedValue(mockClient);
+    vi.mocked(CDP as any).mockResolvedValue(mockClient);
 
     cdpClient = new CdpClient({ port: 9222 });
   });
@@ -112,7 +114,7 @@ describe('CdpClient', () => {
 
   test('should handle connection errors', async () => {
     const { default: CDP } = await import('chrome-remote-interface');
-    vi.mocked(CDP).mockRejectedValue(new Error('Connection failed'));
+    vi.mocked(CDP as any).mockRejectedValue(new Error('Connection failed'));
 
     await expect(cdpClient.connect()).rejects.toThrow('Failed to connect to CDP');
   });

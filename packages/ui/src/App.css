@@ -493,6 +493,11 @@
   box-shadow: inset 2px 0 0 #faad14;
 }
 
+.tree-node.highlighted {
+  background: #fff1f0;
+  box-shadow: inset 2px 0 0 #ff4d4f;
+}
+
 /* Tree scrollbar styling */
 .tree-content::-webkit-scrollbar {
   width: 8px;

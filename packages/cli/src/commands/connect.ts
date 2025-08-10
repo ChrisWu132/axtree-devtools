@@ -136,27 +136,7 @@ async function executeConnect(options: ConnectOptions): Promise<void> {
 
   // Handle graceful shutdown
   const cleanup = async () => {
-    console.log(chalk.yellow('\n🛑 Shutting down...'));
-
-    try {
-      // If recording is active and an output path is provided, stop and persist before shutting down
-      if (!options.noRecord && options.output && bridge.getRecordingStatus().isRecording) {
-        const recording = bridge.stopRecording();
-        try {
-          const fs = await import('fs/promises');
-          const path = await import('path');
-          const resolvedPath = path.resolve(options.output);
-          const dir = path.dirname(resolvedPath);
-          await fs.mkdir(dir, { recursive: true });
-          await fs.writeFile(resolvedPath, JSON.stringify(recording, null, 2));
-          console.log(chalk.green(`💾 Recording saved to: ${resolvedPath}`));
-        } catch (err) {
-          console.error(chalk.red('Failed to save recording during shutdown:'), err);
-        }
-      }
-    } catch (e) {
-      console.warn(chalk.yellow('Cleanup warning (recording persist):'), e);
-    }
+    console.log(chalk.yellow('\\n🛑 Shutting down...'));
     
     if (uiProcess) {
       uiProcess.kill('SIGTERM');
@@ -170,10 +150,10 @@ async function executeConnect(options: ConnectOptions): Promise<void> {
   process.on('SIGINT', cleanup);
   process.on('SIGTERM', cleanup);
 
-  console.log(chalk.green('\n🚀 AXTree is ready!'));
+  console.log(chalk.green('\\n🚀 AXTree is ready!'));
   console.log(chalk.cyan(`   📱 UI: http://localhost:${uiPort}`));
   console.log(chalk.cyan(`   🔗 Bridge: ws://localhost:${bridgePort}/ax-tree`));
-  console.log(chalk.yellow('\nPress Ctrl+C to stop'));
+  console.log(chalk.yellow('\\nPress Ctrl+C to stop'));
 
   // Keep process alive
   await new Promise(() => {});

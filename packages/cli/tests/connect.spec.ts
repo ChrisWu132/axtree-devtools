@@ -27,7 +27,7 @@ describe('Connect Command', () => {
     const command = createConnectCommand();
     
     expect(command.name()).toBe('connect');
-    expect(command.description()).toBe('Connect to Chrome DevTools and start the AXTree bridge');
+    expect(command.description()).toBe('Connect to Chrome DevTools with live monitoring & auto-recording');
   });
 
   test('should validate CDP connection successfully', async () => {

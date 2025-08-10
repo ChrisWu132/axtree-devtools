@@ -104,9 +104,11 @@ export class CdpClient extends EventEmitter {
     });
 
     // Handle page navigation
-    this.client.Page.frameNavigated(() => {
+    this.client.Page.frameNavigated((evt: any) => {
       console.log('Frame navigated, refreshing tree...');
       setTimeout(() => this.refreshFullTree(), 1000); // Wait for page to load
+      // Emit a user event for navigation
+      this.emit('userEvent', { type: 'navigation', url: evt?.frame?.url, timestamp: Date.now() });
     });
   }
 

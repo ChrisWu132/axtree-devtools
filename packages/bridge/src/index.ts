@@ -93,13 +93,17 @@ export class Bridge extends EventEmitter {
 
   private setupEventHandlers(): void {
     // Handle CDP events
-    this.cdpClient.onTreeRefresh((tree: AXNodeTree) => {
+      this.cdpClient.onTreeRefresh((tree: AXNodeTree) => {
       const changedNodeIds = this.computeChangedNodeIds(this.lastTree, tree);
       this.broadcast({ type: 'snapshot', payload: { tree, changedNodeIds } as any });
-      this.lastTree = tree;
       if (this.recorder?.getStatus().isRecording) {
-        this.recorder.recordTreeChange(tree);
+        this.recorder.recordTreeChange(tree, {
+          type: 'treeRefresh',
+          timestamp: Date.now(),
+          details: { changedNodeIds }
+        });
       }
+      this.lastTree = tree;
     });
 
     this.cdpClient.onNodesUpdated((nodes: any[]) => {
@@ -109,7 +113,12 @@ export class Bridge extends EventEmitter {
         if (tree) {
           // If recording, record the tree change
           if (this.recorder?.getStatus().isRecording) {
-            this.recorder.recordTreeChange(tree);
+            const changedNodeIds = this.computeChangedNodeIds(this.lastTree, tree);
+            this.recorder.recordTreeChange(tree, {
+              type: 'nodesUpdated',
+              timestamp: Date.now(),
+              details: { changedNodeIds }
+            });
           }
           
           // Broadcast to UI clients
@@ -120,7 +129,13 @@ export class Bridge extends EventEmitter {
       });
     });
 
-    // Handle delta updates
+    // Record navigation/user events to timeline even if no immediate tree change
+    (this.cdpClient as any).on('userEvent', (evt: any) => {
+      if (this.recorder?.getStatus().isRecording) {
+        this.recordUserEvent({ type: evt.type, timestamp: evt.timestamp, details: { url: evt.url } });
+      }
+    });
+
     // Disable raw delta broadcast; we always fetch and broadcast full snapshots
 
     this.cdpClient.onError((error: Error) => {
@@ -137,10 +152,8 @@ export class Bridge extends EventEmitter {
       // Send current tree to new client
       this.cdpClient.getFullAXTree().then(tree => {
         if (tree) {
-          this.broadcast({
-            type: 'snapshot',
-            payload: tree
-          });
+          const changedNodeIds: number[] = [];
+          this.broadcast({ type: 'snapshot', payload: { tree, changedNodeIds } as any });
         }
       });
       

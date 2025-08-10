@@ -84,6 +84,8 @@ export interface TimelineEntry {
   event?: UserInteractionEvent;
   /** Tree delta from previous state to next */
   delta: AXNodeTreeDelta;
+  /** Backend node ids that changed in this entry */
+  changedNodeIds?: number[];
 }
 
 /**

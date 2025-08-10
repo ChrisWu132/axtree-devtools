@@ -130,7 +130,8 @@ export class Recorder extends EventEmitter {
       const timelineEntry: TimelineEntry = {
         timestamp: Date.now(),
         event,
-        delta
+        delta,
+        changedNodeIds: this.extractChangedNodeIds(this.currentTree, newTree)
       };
 
       this.timeline.push(timelineEntry);
@@ -151,6 +152,32 @@ export class Recorder extends EventEmitter {
       console.error('Error recording tree change:', error);
       this.emit('error', error);
     }
+  }
+
+  private extractChangedNodeIds(prev: AXNodeTree, next: AXNodeTree): number[] {
+    const prevMap = new Map<number, any>();
+    const nextMap = new Map<number, any>();
+    const collect = (node: any, map: Map<number, any>) => {
+      if (!node) return;
+      const id = node.backendNodeId;
+      if (typeof id === 'number') {
+        map.set(id, { role: node.role, name: node.name, value: node.value });
+      }
+      if (node.children) node.children.forEach((c: any) => collect(c, map));
+    };
+    collect(prev, prevMap);
+    collect(next, nextMap);
+    const ids = new Set<number>([...prevMap.keys(), ...nextMap.keys()]);
+    const changed: number[] = [];
+    for (const id of ids) {
+      const a = prevMap.get(id);
+      const b = nextMap.get(id);
+      if (!a || !b) { changed.push(id); continue; }
+      if (a.role !== b.role || a.name !== b.name || a.value !== b.value) {
+        changed.push(id);
+      }
+    }
+    return changed;
   }
 
   /**

@@ -86,8 +86,12 @@ function App() {
     setSelectedNode(null); // Clear selection when tree changes
   };
 
+  const [highlightNodeId, setHighlightNodeId] = useState<number | undefined>(undefined);
+
   const handleTimelineEntryChange = (entry: TimelineEntry | null) => {
     setCurrentTimelineEntry(entry);
+    const id = (entry?.event?.details && (entry.event.details.backendNodeId || entry.event.details.nodeId)) as number | undefined;
+    if (id) setHighlightNodeId(id);
   };
 
   // Removed handleLoadingError - no file loading anymore
@@ -193,6 +197,7 @@ function App() {
             <div className="tree-panel wide">
               <TreeView 
                 data={displayTree}
+                highlightNodeId={highlightNodeId}
                 onNodeSelect={handleNodeSelect}
                 onNodeHighlight={appMode === 'live' ? handleNodeHighlight : undefined}
               />

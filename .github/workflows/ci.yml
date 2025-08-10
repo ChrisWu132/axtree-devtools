@@ -51,3 +51,4 @@ jobs:
         run: pnpm --filter @ax/ui exec playwright install --with-deps
       - name: E2E
         run: pnpm test:e2e || true  # Make non-blocking while stabilizing
+

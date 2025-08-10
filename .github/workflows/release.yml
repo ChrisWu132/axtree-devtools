@@ -48,3 +48,4 @@ jobs:
           files: |
             packages/ui/dist/**
           generate_release_notes: true
+
