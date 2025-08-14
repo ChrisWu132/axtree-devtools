@@ -1,41 +1,37 @@
 # Dependencies
 node_modules/
-.pnpm-store
+packages/*/node_modules/
 
-# Build artifacts
-dist
-build
-coverage
-*.tsbuildinfo
+# Build outputs
+packages/*/dist/
+packages/*/tsconfig.*.tsbuildinfo
 
-# Log files
-logs
+# Playwright and test artifacts
+playwright-report/
+test-results/
+
+# Coverage and caches
+coverage/
+.vitest/
+
+# Logs
 *.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-pnpm-debug.log*
-lerna-debug.log*
 
-# Environment variables
-.env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
-
-# IDE configurations
+# Editor/OS files
 .vscode/
-.idea/
-
-# OS-generated files
 .DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
 Thumbs.db
 
-# Misc
-.npm
+# Env files
+.env
+.env.*
+
+# Common temporary files
+*.tmp
+*.temp
+
+# Generated recordings
+**/test-recording.json

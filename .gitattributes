@@ -1,0 +1,6 @@
+# Treat generated build outputs and reports as generated for GitHub linguist
+packages/ui/dist/* linguist-generated=true
+playwright-report/* linguist-generated=true
+**/dist/* linguist-generated=true
+**/*.d.ts linguist-generated=true
+

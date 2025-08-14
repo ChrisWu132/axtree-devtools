@@ -48,7 +48,9 @@ jobs:
           cache: 'pnpm'
       - run: pnpm install --frozen-lockfile
       - name: Install browsers
-        run: pnpm --filter @ax/ui exec playwright install --with-deps
+        run: pnpm exec playwright install --with-deps
+      - name: Build all
+        run: pnpm -r build
       - name: E2E
         run: pnpm test:e2e || true  # Make non-blocking while stabilizing
 
