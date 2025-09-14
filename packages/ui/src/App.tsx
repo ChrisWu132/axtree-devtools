@@ -7,7 +7,7 @@ import { TimelinePlayer } from './components/TimelinePlayer';
 // RecordingLoader removed - recordings now come from memory via WebSocket
 import { RecordingControls } from './components/RecordingControls';
 import { useAxTreeSocket } from './hooks/useAxTreeSocket';
-import type { Recording, TimelineEntry, AXNodeTree } from '@ax/core';
+import type { Recording, TimelineEntry, AXNodeTree, AXNodeFlat } from '@ax/core';
 import './App.css';
 
 type AppMode = 'live' | 'timeline';
@@ -24,8 +24,8 @@ function App() {
     stopRecording 
   } = useAxTreeSocket();
   
-  const [selectedNode, setSelectedNode] = useState<any>(null);
-  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [selectedNode, setSelectedNode] = useState<{ data: AXNodeFlat } | null>(null);
+  const [searchResults, setSearchResults] = useState<AXNodeFlat[]>([]);
   const [showSearchResults, setShowSearchResults] = useState(false);
   
   // Timeline mode state
@@ -35,7 +35,7 @@ function App() {
   const [currentTimelineEntry, setCurrentTimelineEntry] = useState<TimelineEntry | null>(null);
   // Removed loadingError state - no longer needed
 
-  const handleNodeSelect = (node: any) => {
+  const handleNodeSelect = (node: { data: AXNodeFlat }) => {
     setSelectedNode(node);
     console.log('Selected node:', node);
   };
@@ -45,7 +45,7 @@ function App() {
     console.log('Highlighting node:', backendNodeId);
   };
 
-  const handleSearchResults = (results: any[]) => {
+  const handleSearchResults = (results: AXNodeFlat[]) => {
     setSearchResults(results);
     setShowSearchResults(results.length > 0);
   };
@@ -55,7 +55,7 @@ function App() {
     setShowSearchResults(false);
   };
 
-  const handleSearchResultClick = (node: any) => {
+  const handleSearchResultClick = (node: AXNodeFlat) => {
     // Convert search result node to tree view format
     const treeNode = {
       data: node
@@ -104,7 +104,7 @@ function App() {
       setAppMode('timeline');
       console.log('Auto-switched to timeline mode with new recording');
     }
-  }, [lastRecording]);
+  }, [lastRecording, currentRecording]);
 
   // Determine which tree to display
   const displayTree = appMode === 'timeline' ? timelineTree : tree;
@@ -203,7 +203,7 @@ function App() {
               />
               {showSearchResults && (
                 <SearchResults
-                  results={searchResults}
+                  results={searchResults.map(node => ({ node, path: '', matchType: 'name' as const, excerpt: node.name || node.role }))}
                   onResultClick={handleSearchResultClick}
                 />
               )}

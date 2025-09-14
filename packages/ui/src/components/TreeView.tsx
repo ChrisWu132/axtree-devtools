@@ -4,7 +4,7 @@ import type { AXNodeTree } from '@ax/core';
 
 interface TreeViewProps {
   data: AXNodeTree | null;
-  onNodeSelect?: (node: any) => void;
+  onNodeSelect?: (node: { data: AXNodeTree }) => void;
   onNodeHighlight?: (backendNodeId: number) => void;
   highlightNodeId?: number;
 }
@@ -13,21 +13,21 @@ interface TreeNode {
   id: string;
   name: string;
   children?: TreeNode[];
-  backendNodeId?: number;
-  role?: string;
+  backendNodeId: number;
+  role: string;
   value?: string;
 }
 
 function convertAxTreeToTreeNodes(axTree: AXNodeTree | null): TreeNode[] {
   if (!axTree) return [];
   
-  const convertNode = (node: any): TreeNode => {
+  const convertNode = (node: AXNodeTree): TreeNode => {
     return {
-      id: node.backendNodeId?.toString() || Math.random().toString(),
+      id: node.backendNodeId.toString(),
       name: node.name || node.role || 'Unknown',
       children: node.children?.map(convertNode) || [],
       backendNodeId: node.backendNodeId,
-      role: node.role,
+      role: node.role || 'unknown',
       value: node.value
     };
   };
@@ -37,7 +37,7 @@ function convertAxTreeToTreeNodes(axTree: AXNodeTree | null): TreeNode[] {
 
 export function TreeView({ data, onNodeSelect, onNodeHighlight, highlightNodeId }: TreeViewProps) {
   const treeData = convertAxTreeToTreeNodes(data);
-  const changed = (window as any).__AX_CHANGED__ as number[] | undefined;
+  const changed = (window as Window & { __AX_CHANGED__?: number[] }).__AX_CHANGED__;
   
   if (!data) {
     return (
@@ -50,7 +50,7 @@ export function TreeView({ data, onNodeSelect, onNodeHighlight, highlightNodeId 
     );
   }
   
-  const handleSelect = (nodes: any[]) => {
+  const handleSelect = (nodes: { data: AXNodeTree }[]) => {
     if (nodes.length > 0) {
       const selectedNode = nodes[0];
       onNodeSelect?.(selectedNode);

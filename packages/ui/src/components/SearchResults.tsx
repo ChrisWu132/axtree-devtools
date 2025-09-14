@@ -1,5 +1,7 @@
+import type { AXNodeFlat } from '@ax/core';
+
 interface SearchResult {
-  node: any;
+  node: AXNodeFlat;
   path: string;
   matchType: 'name' | 'role' | 'value';
   excerpt: string;
@@ -7,7 +9,7 @@ interface SearchResult {
 
 interface SearchResultsProps {
   results: SearchResult[];
-  onResultClick: (node: any) => void;
+  onResultClick: (node: AXNodeFlat) => void;
 }
 
 export function SearchResults({ results, onResultClick }: SearchResultsProps) {

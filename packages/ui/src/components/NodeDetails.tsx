@@ -1,7 +1,8 @@
 import { useState } from 'react';
+import type { AXNodeFlat } from '@ax/core';
 
 interface NodeDetailsProps {
-  selectedNode: any;
+  selectedNode: { data: AXNodeFlat } | null;
 }
 
 export function NodeDetails({ selectedNode }: NodeDetailsProps) {
@@ -17,7 +18,7 @@ export function NodeDetails({ selectedNode }: NodeDetailsProps) {
   }
 
   const nodeData = selectedNode.data;
-  const hasAdvancedData = nodeData?.states?.length > 0 || 
+  const hasAdvancedData = (nodeData?.states?.length || 0) > 0 ||
                          nodeData?.attributes && Object.keys(nodeData.attributes).length > 0 ||
                          nodeData?.properties && Object.keys(nodeData.properties).length > 0;
 

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import type { AXNodeTree, Recording } from '@ax/core';
+import type { AXNodeTree, Recording, UserInteractionEvent, AXNodeTreeDelta } from '@ax/core';
 
 type SnapshotMessage = {
   type: 'snapshot';
@@ -8,17 +8,17 @@ type SnapshotMessage = {
 
 type UserEventMessage = {
   type: 'userEvent';
-  payload: any; // CDP Input event or DOM event
+  payload: UserInteractionEvent; // CDP Input event or DOM event
 };
 
 type DeltaMessage = {
   type: 'delta';
-  payload: any; // JsonDiffPatch delta
+  payload: { fullTree?: AXNodeTree; delta?: AXNodeTreeDelta }; // JsonDiffPatch delta
 };
 
 type ConnectedMessage = {
   type: 'connected';
-  payload: any;
+  payload: { status: string };
 };
 
 type RecordingStatusMessage = {
@@ -87,12 +87,12 @@ export function useAxTreeSocket(options: UseAxTreeSocketOptions = {}) {
           
           switch (message.type) {
             case 'snapshot':
-              if ((message.payload as any)?.tree) {
-                const { tree, changedNodeIds } = message.payload as any;
-                (window as any).__AX_CHANGED__ = changedNodeIds || [];
+              if ((message.payload as { tree?: AXNodeTree })?.tree) {
+                const { tree, changedNodeIds } = message.payload as { tree: AXNodeTree; changedNodeIds?: number[] };
+                (window as Window & { __AX_CHANGED__?: number[] }).__AX_CHANGED__ = changedNodeIds || [];
                 setTree(tree);
               } else {
-                setTree(message.payload as any);
+                setTree(message.payload as AXNodeTree);
               }
               console.log('Full tree snapshot received');
               break;

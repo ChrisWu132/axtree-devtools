@@ -1,14 +1,14 @@
-import { useState, useEffect } from 'react';
-import type { AXNodeTree } from '@ax/core';
+import { useState, useEffect, useCallback } from 'react';
+import type { AXNodeTree, AXNodeFlat } from '@ax/core';
 
 interface SearchBoxProps {
   tree: AXNodeTree | null;
-  onSearchResults: (results: SearchResult[]) => void;
+  onSearchResults: (results: AXNodeFlat[]) => void;
   onClearSearch: () => void;
 }
 
 interface SearchResult {
-  node: AXNodeTree;
+  node: AXNodeFlat;
   path: string;
   matchType: 'name' | 'role' | 'value';
   excerpt: string;
@@ -25,28 +25,40 @@ export function SearchBox({ tree, onSearchResults, onClearSearch }: SearchBoxPro
     // Current node path
     const currentPath = path ? `${path} > ${node.role}` : node.role;
     
+    // Convert node to flat format for results
+    const flatNode: AXNodeFlat = {
+      backendNodeId: node.backendNodeId,
+      role: node.role,
+      name: node.name,
+      value: node.value,
+      properties: node.properties,
+      boundingBox: node.boundingBox,
+      attributes: node.attributes,
+      states: node.states
+    };
+
     // Check if current node matches
     if (node.name && node.name.toLowerCase().includes(lowerTerm)) {
       results.push({
-        node,
+        node: flatNode,
         path: currentPath,
         matchType: 'name',
         excerpt: node.name
       });
     }
-    
+
     if (node.role && node.role.toLowerCase().includes(lowerTerm)) {
       results.push({
-        node,
+        node: flatNode,
         path: currentPath,
         matchType: 'role',
         excerpt: node.role
       });
     }
-    
+
     if (node.value && node.value.toLowerCase().includes(lowerTerm)) {
       results.push({
-        node,
+        node: flatNode,
         path: currentPath,
         matchType: 'value',
         excerpt: node.value
@@ -63,7 +75,7 @@ export function SearchBox({ tree, onSearchResults, onClearSearch }: SearchBoxPro
     return results;
   };
 
-  const handleSearch = (term: string) => {
+  const handleSearch = useCallback((term: string) => {
     if (!term.trim()) {
       onClearSearch();
       return;
@@ -79,14 +91,14 @@ export function SearchBox({ tree, onSearchResults, onClearSearch }: SearchBoxPro
     // Debounce search to avoid too many updates
     setTimeout(() => {
       const results = searchInTree(tree, term);
-      onSearchResults(results.slice(0, 50)); // Limit to 50 results
+      onSearchResults(results.slice(0, 50).map(r => r.node)); // Limit to 50 results and extract nodes
       setIsSearching(false);
     }, 300);
-  };
+  }, [tree, onSearchResults, onClearSearch]);
 
   useEffect(() => {
     handleSearch(searchTerm);
-  }, [searchTerm, tree]);
+  }, [searchTerm, tree, handleSearch]);
 
   const handleClear = () => {
     setSearchTerm('');

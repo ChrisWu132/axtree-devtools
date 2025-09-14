@@ -19,7 +19,7 @@ export function TimelinePlayer({ recording, onTreeChange, onTimelineEntryChange 
 
   // Calculate tree state at a specific timeline index
   const calculateTreeAtIndex = useCallback((targetIndex: number): AXNodeTree => {
-    let tree = JSON.parse(JSON.stringify(recording.initialSnapshot.tree));
+    const tree = JSON.parse(JSON.stringify(recording.initialSnapshot.tree));
     
     // Apply all deltas up to the target index
     for (let i = 0; i <= targetIndex && i < recording.timeline.length; i++) {
