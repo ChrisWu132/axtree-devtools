@@ -31,7 +31,7 @@ jobs:
         run: pnpm -r build
 
       - name: Unit tests
-        run: pnpm test -- --run
+        run: pnpm test
 
   e2e:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
