@@ -4,7 +4,10 @@
       "Bash(pnpm lint:*)",
       "Bash(pnpm install:*)",
       "Bash(npx eslint:*)",
-      "Bash(pnpm build:*)"
+      "Bash(pnpm build:*)",
+      "Bash(find:*)",
+      "Bash(pnpm test:*)",
+      "Bash(npx vitest:*)"
     ],
     "deny": [],
     "ask": []
